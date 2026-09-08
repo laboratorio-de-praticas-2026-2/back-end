@@ -1,0 +1,57 @@
+name: CI Back-end Profissional
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'short-release/**'
+      - '*-short-release-*'
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: read
+  actions: read
+  security-events: write
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run lint -- --no-fix
+
+  build:
+    name: Build e Prisma Check
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Gerar Prisma Client
+        run: npx prisma generate
+      - run: npm run build
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    if: ${{ (github.base_ref == 'main' || github.base_ref == 'develop') && !startsWith(github.head_ref, 'chore/') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Run npm audit (fail on high)
+        run: npm audit --audit-level=high || (echo "Vulnerabilidades graves encontradas" && exit 1)
