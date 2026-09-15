@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put} from '@nestjs/common';
+import { Body, Controller, Put } from '@nestjs/common';
 import { ContatoService } from './contato.service.js';
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
 

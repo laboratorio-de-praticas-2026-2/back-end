@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { CreateContatoDto } from './dto/create-contato.dto.js';
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
 
 @Injectable()
