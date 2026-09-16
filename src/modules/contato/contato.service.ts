@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { CreateContatoDto } from './dto/create-contato.dto.js';
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
 
+//import { PrismaService } from '';
+
 @Injectable()
 export class ContatoService {
-
   //constructor(private readonly prisma: PrismaService) {}
+
   private infoContact = {
     whatsapp: '00 00000-0000',
     telefone: '11 1111-1111',
@@ -15,7 +17,6 @@ export class ContatoService {
   };
 
   async putContact(updateContatoDto: UpdateContatoDto) {
-
     // const existingContact = await this.prisma.contato.findFirst();
 
     // if (existingContact) {
@@ -37,10 +38,15 @@ export class ContatoService {
 
     this.infoContact = {
       ...this.infoContact,
-      ...updateContatoDto
-    }
+      ...updateContatoDto,
+    };
 
     return this.infoContact;
   }
 
+  async getContact() {
+    //return this.prisma.contato.findFirst();
+
+    return this.infoContact;
+  }
 }
