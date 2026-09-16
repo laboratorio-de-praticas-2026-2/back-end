@@ -6,8 +6,13 @@ import { UpdateContatoDto } from './dto/update-contato.dto.js';
 export class ContatoController {
   constructor(private readonly contatoService: ContatoService) {}
 
+  @Put()
+  putContact(@Body() updateContatoDto: UpdateContatoDto) {
+    return this.contatoService.putContact(updateContatoDto);
+  } // <--- Faltava fechar esta chave
+
   @Get()
   getContact() {
-    return this.contatoService.getContact()
+    return this.contatoService.getContact();
   }
 }
