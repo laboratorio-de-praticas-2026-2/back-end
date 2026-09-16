@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ContatoModule } from '../contato/contato.module.js';
+import { ContatoModule } from '../contato.module.js';
 import { DisparoService } from './disparo.service.js';
 import { DisparoController } from './disparo.controller.js';
 
@@ -8,4 +8,4 @@ import { DisparoController } from './disparo.controller.js';
   controllers: [DisparoController],
   providers: [DisparoService],
 })
-export class DisparoModule {}
+export class DisparoModule { }

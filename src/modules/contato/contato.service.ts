@@ -15,10 +15,6 @@ export class ContatoService {
     horarioAtendimento: 'Segunda a Sexta, das 08:00 ás 11:30, 13:00 ás 18:00',
   };
 
- getContact() {
-  return this.infoContact;
-}
-
   async putContact(updateContatoDto: UpdateContatoDto) {
     // const existingContact = await this.prisma.contato.findFirst();
 

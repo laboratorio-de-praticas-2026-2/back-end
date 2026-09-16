@@ -3,7 +3,7 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
-import { DisparoModule } from './modules/disparo/disparo.module.js';
+import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -22,4 +22,4 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
