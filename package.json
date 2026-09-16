@@ -23,7 +23,8 @@
     "postinstall": "prisma skills sync || exit 0"
   },
   "overrides": {
-    "tmp": "^0.2.3"
+    "tmp": "^0.2.3",
+    "nodemailer": "^10.0.10"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.3.7",
@@ -34,9 +35,9 @@
     "cloudinary": "^2.11.0",
     "ejs": "^6.0.1",
     "jsonwebtoken": "^9.0.3",
+    "preview-email": "^3.4.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "sequelize": "^6.37.8",
     "sharp": "^0.35.4",
     "streamifier": "^0.1.1"
   },
