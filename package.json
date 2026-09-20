@@ -27,19 +27,34 @@
     "nodemailer": "^10.0.10"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@nestjs-modules/mailer": "^2.3.7",
+=======
+    "@nestjs/bullmq": "^12.0.0",
+>>>>>>> c9a8bd0 (chore: base da squad 2.3 (Puppeteer, BullMQ/Redis, validação e assets))
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.0",
     "@nestjs/core": "^12.0.1",
     "@nestjs/mapped-types": "^12.0.0",
     "@nestjs/observe": "^0.1.8",
     "@nestjs/platform-express": "^12.0.1",
+<<<<<<< HEAD
     "@nestjs/sequelize": "^12.0.0",
     "cloudinary": "^2.11.0",
     "ejs": "^6.0.1",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.24.4",
     "preview-email": "^3.4.0",
+=======
+    "build": "^0.1.4",
+    "bullmq": "^6.3.8",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "date-fns": "^4.4.0",
+    "decimal.js": "^10.6.0",
+    "handlebars": "^4.7.9",
+    "puppeteer": "^25.11.0",
+>>>>>>> c9a8bd0 (chore: base da squad 2.3 (Puppeteer, BullMQ/Redis, validação e assets))
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sequelize": "^6.37.8",
