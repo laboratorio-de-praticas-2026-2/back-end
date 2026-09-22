@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
+import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -39,6 +40,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ContatoModule,
     DisparoModule,
     MensagemModule,
+    DashboardModule
   ],
   controllers: [AppController],
   providers: [AppService],
