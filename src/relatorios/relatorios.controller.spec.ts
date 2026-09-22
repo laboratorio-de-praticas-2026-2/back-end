@@ -58,4 +58,40 @@ describe('RelatoriosController', () => {
       mensagem: 'Relatório excluído',
     });
   });
+    it('deve rejeitar relatorioId inválido', async () => {
+    const adicionarGeracao = vi.fn();
+
+    const controller = new RelatoriosController({
+      adicionarGeracao,
+    } as any);
+
+    await expect(
+      controller.gerarRelatorio({ relatorioId: 0 }),
+    ).rejects.toThrow('relatorioId deve ser um número inteiro positivo');
+
+    expect(adicionarGeracao).not.toHaveBeenCalled();
+  });
+    it('deve responder imediatamente após enviar o relatório para a fila', async () => {
+    const adicionarGeracao = vi.fn().mockResolvedValue(undefined);
+
+    const controller = new RelatoriosController({
+      adicionarGeracao,
+    } as any);
+
+    const inicio = Date.now();
+
+    const resposta = await controller.gerarRelatorio({
+      relatorioId: 1,
+    });
+
+    const duracao = Date.now() - inicio;
+
+    expect(adicionarGeracao).toHaveBeenCalledWith(1);
+
+    expect(resposta).toEqual({
+      mensagem: 'Job de geração de relatório enviado para a fila',
+    });
+
+    expect(duracao).toBeLessThan(1000);
+  });
 });

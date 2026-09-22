@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -16,6 +17,16 @@ export class RelatoriosController {
 
   @Post('generate')
   async gerarRelatorio(@Body() body: { relatorioId: number }) {
+    if (
+      typeof body?.relatorioId !== 'number' ||
+      !Number.isInteger(body.relatorioId) ||
+      body.relatorioId <= 0
+    ) {
+      throw new BadRequestException(
+        'relatorioId deve ser um número inteiro positivo',
+      );
+    }
+
     await this.relatoriosProducer.adicionarGeracao(body.relatorioId);
 
     return {

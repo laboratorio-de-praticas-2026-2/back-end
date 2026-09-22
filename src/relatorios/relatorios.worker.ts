@@ -17,21 +17,30 @@ export class RelatoriosWorker extends WorkerHost {
   async process(job: Job): Promise<void> {
     console.log('Job recebido:', job.name, job.data);
 
-    const html = `
-      <html>
-        <body>
-          <h1>Relatório de teste</h1>
-          <p>ID do relatório: ${job.data.relatorioId}</p>
-        </body>
-      </html>
-    `;
+    try {
+      const html = `
+        <html>
+          <body>
+            <h1>Relatório de teste</h1>
+            <p>ID do relatório: ${job.data.relatorioId}</p>
+          </body>
+        </html>
+      `;
 
-   const pdf = await this.relatoriosPdfService.gerarPdf(html);
+      const pdf = await this.relatoriosPdfService.gerarPdf(html);
 
-console.log('PDF gerado em memória:', pdf.length, 'bytes');
+      console.log('PDF gerado em memória:', pdf.length, 'bytes');
 
-const url = await this.cloudinaryService.uploadPdf(pdf);
+      const url = await this.cloudinaryService.uploadPdf(pdf);
 
-console.log('PDF enviado para o Cloudinary:', url);
+      console.log('PDF enviado para o Cloudinary:', url);
+    } catch (error) {
+      console.error(
+        'Erro ao processar relatório:',
+        error instanceof Error ? error.message : error,
+      );
+
+      throw error;
+    }
   }
 }

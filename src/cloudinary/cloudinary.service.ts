@@ -42,4 +42,22 @@
         uploadStream.end(buffer);
         });
     }
+    async deletePdf(publicId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.destroy(
+      publicId,
+      {
+        resource_type: 'raw',
+      },
+      (error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      },
+    );
+  });
+}
     }
