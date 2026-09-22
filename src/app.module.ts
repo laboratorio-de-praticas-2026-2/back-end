@@ -13,6 +13,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
   imports: [
+<<<<<<< HEAD
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -31,6 +32,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       }),
     }),
 
+=======
+   
+>>>>>>> 60428eb (Feat: Realização de teste)
     ObserveModule.forRoot({
       appKey: 'YOUR_APP_KEY',
       appSecret: 'YOUR_APP_SECRET',
