@@ -40,7 +40,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ContatoModule,
     DisparoModule,
     MensagemModule,
-    DashboardModule
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
