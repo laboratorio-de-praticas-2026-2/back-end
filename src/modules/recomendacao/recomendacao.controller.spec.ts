@@ -5,10 +5,16 @@ import { RecomendacaoService } from './recomendacao.service.js';
 describe('RecomendacaoController', () => {
   let controller: RecomendacaoController;
 
+  const recomendacaoServiceMock = {
+    buscarAtributosPerfil: vi.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RecomendacaoController],
-      providers: [RecomendacaoService],
+      providers: [
+        { provide: RecomendacaoService, useValue: recomendacaoServiceMock },
+      ],
     }).compile();
 
     controller = module.get<RecomendacaoController>(RecomendacaoController);
