@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/sequelize';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Op } from 'sequelize';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
 import { Empresa } from '../../models/empresa.model.js';
@@ -105,6 +106,101 @@ describe('SearchService', () => {
     expect((result as { tipo: string }).tipo).toBe('pessoa_juridica');
     expect(empresaModel.findOne).toHaveBeenCalledWith(
       expect.objectContaining({ where: { cnpj: '11222333000181' } }),
+    );
+  });
+
+  it('advancedSearch sem filtros retorna paginação padrão', async () => {
+    usuarioModel.findAndCountAll.mockResolvedValue({
+      count: 1,
+      rows: [
+        {
+          toJSON: () => ({
+            id: 1,
+            nome: 'Cliente Teste',
+            email: 'cliente@example.com',
+            celular: null,
+            cpfCnpj: '52998224725',
+            dataCadastro: new Date('2024-01-01'),
+            empresas: [],
+          }),
+        },
+      ],
+    });
+
+    const result = await service.advancedSearch({}, NivelUsuarioEnum.administrador);
+
+    expect(result.total).toBe(1);
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(20);
+    expect(result.results).toHaveLength(1);
+    expect(usuarioModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {}, limit: 20, offset: 0, distinct: true }),
+    );
+    expect(empresaModel.findAll).not.toHaveBeenCalled();
+  });
+
+  it('advancedSearch retorna lista vazia quando nenhum filtro casa', async () => {
+    empresaModel.findAll.mockResolvedValue([]);
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    const result = await service.advancedSearch({ nome: 'Inexistente' }, NivelUsuarioEnum.cliente);
+
+    expect(result).toEqual({ total: 0, page: 1, pageSize: 20, results: [] });
+  });
+
+  it('advancedSearch filtra por nome no próprio usuario ou em empresas vinculadas', async () => {
+    empresaModel.findAll.mockResolvedValue([{ usuarioId: 7 }]);
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await service.advancedSearch({ nome: 'Acme' }, NivelUsuarioEnum.administrador);
+
+    expect(empresaModel.findAll).toHaveBeenCalledWith({
+      where: {
+        [Op.or]: [
+          { razaoSocial: { [Op.like]: '%Acme%' } },
+          { nomeFantasia: { [Op.like]: '%Acme%' } },
+        ],
+      },
+      attributes: ['usuarioId'],
+    });
+
+    const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
+    expect(chamada.where).toEqual({
+      [Op.and]: [
+        {
+          [Op.or]: [{ nome: { [Op.like]: '%Acme%' } }, { id: { [Op.in]: [7] } }],
+        },
+      ],
+    });
+  });
+
+  it('advancedSearch combina regimeTributario e possuiEmpresa com AND', async () => {
+    empresaModel.findAll.mockImplementation(({ where }: { where?: Record<string, unknown> }) => {
+      if (where?.regimeTributario) {
+        return Promise.resolve([{ usuarioId: 1 }, { usuarioId: 2 }]);
+      }
+      return Promise.resolve([{ usuarioId: 1 }]);
+    });
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await service.advancedSearch(
+      { regimeTributario: 'simples_nacional', possuiEmpresa: 'true' },
+      NivelUsuarioEnum.administrador,
+    );
+
+    const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
+    expect(chamada.where).toEqual({
+      [Op.and]: [{ id: { [Op.in]: [1, 2] } }, { id: { [Op.in]: [1] } }],
+    });
+  });
+
+  it('advancedSearch respeita page e pageSize informados, limitando pageSize a 100', async () => {
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await service.advancedSearch({ page: '2', pageSize: '500' }, NivelUsuarioEnum.administrador);
+
+    expect(usuarioModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({ offset: 100, limit: 100 }),
     );
   });
 });

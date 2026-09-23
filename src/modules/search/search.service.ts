@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { Op, WhereOptions } from 'sequelize';
 import type { UserRole } from '../../commons/decorators/current-role.decorator.js';
 import {
   classifyDocument,
@@ -9,6 +10,7 @@ import {
 } from '../../commons/validators/document.validator.js';
 import { Empresa } from '../../models/empresa.model.js';
 import { Usuario } from '../../models/usuario.model.js';
+import type { AdvancedSearchQueryDto } from './dto/advanced-search-query.dto.js';
 import { presentEmpresa, presentUsuario } from './presenters/search-result.presenter.js';
 
 const USUARIO_ATTRIBUTES = ['id', 'nome', 'email', 'celular', 'cpfCnpj', 'dataCadastro'];
@@ -22,6 +24,7 @@ const EMPRESA_ATTRIBUTES = [
   'inscricaoEstadual',
   'inscricaoMunicipal',
 ];
+const REGIMES_TRIBUTARIOS = ['mei', 'simples_nacional', 'lucro_presumido', 'lucro_real'] as const;
 
 @Injectable()
 export class SearchService {
@@ -90,5 +93,100 @@ export class SearchService {
     throw new BadRequestException(
       'Documento inválido: informe um CPF (11 dígitos) ou CNPJ (14 dígitos).',
     );
+  }
+
+  async advancedSearch(query: AdvancedSearchQueryDto, role: UserRole) {
+    const page = Math.max(1, Number.parseInt(query.page ?? '1', 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.pageSize ?? '20', 10) || 20));
+    const where = await this.buildWhere(query);
+
+    const { count, rows } = await this.usuarioModel.findAndCountAll({
+      where,
+      attributes: USUARIO_ATTRIBUTES,
+      include: [{ model: Empresa, as: 'empresas', attributes: EMPRESA_ATTRIBUTES }],
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+      distinct: true,
+    });
+
+    return {
+      total: count,
+      page,
+      pageSize,
+      results: rows.map((usuario) => presentUsuario(usuario.toJSON(), role)),
+    };
+  }
+
+  private async buildWhere(query: AdvancedSearchQueryDto): Promise<WhereOptions> {
+    const and: WhereOptions[] = [];
+
+    if (query.nome?.trim()) {
+      const nome = query.nome.trim();
+      const empresasComNome = await this.empresaModel.findAll({
+        where: {
+          [Op.or]: [
+            { razaoSocial: { [Op.like]: `%${nome}%` } },
+            { nomeFantasia: { [Op.like]: `%${nome}%` } },
+          ],
+        },
+        attributes: ['usuarioId'],
+      });
+      const usuarioIds = empresasComNome.map((empresa) => empresa.usuarioId);
+      and.push({
+        [Op.or]: [
+          { nome: { [Op.like]: `%${nome}%` } },
+          { id: { [Op.in]: usuarioIds.length > 0 ? usuarioIds : [-1] } },
+        ],
+      });
+    }
+
+    if (query.cpfCnpj?.trim()) {
+      const digits = onlyDigits(query.cpfCnpj);
+      const empresasComCnpj = await this.empresaModel.findAll({
+        where: { cnpj: { [Op.like]: `%${digits}%` } },
+        attributes: ['usuarioId'],
+      });
+      const usuarioIds = empresasComCnpj.map((empresa) => empresa.usuarioId);
+      and.push({
+        [Op.or]: [
+          { cpfCnpj: { [Op.like]: `%${digits}%` } },
+          { id: { [Op.in]: usuarioIds.length > 0 ? usuarioIds : [-1] } },
+        ],
+      });
+    }
+
+    if (
+      query.regimeTributario &&
+      (REGIMES_TRIBUTARIOS as readonly string[]).includes(query.regimeTributario)
+    ) {
+      const empresasDoRegime = await this.empresaModel.findAll({
+        where: { regimeTributario: query.regimeTributario as (typeof REGIMES_TRIBUTARIOS)[number] },
+        attributes: ['usuarioId'],
+      });
+      const usuarioIds = empresasDoRegime.map((empresa) => empresa.usuarioId);
+      and.push({ id: { [Op.in]: usuarioIds.length > 0 ? usuarioIds : [-1] } });
+    }
+
+    if (query.possuiEmpresa === 'true' || query.possuiEmpresa === 'false') {
+      const todasAsEmpresas = await this.empresaModel.findAll({ attributes: ['usuarioId'] });
+      const usuarioIdsComEmpresa = [...new Set(todasAsEmpresas.map((empresa) => empresa.usuarioId))];
+
+      if (query.possuiEmpresa === 'true') {
+        and.push({ id: { [Op.in]: usuarioIdsComEmpresa.length > 0 ? usuarioIdsComEmpresa : [-1] } });
+      } else {
+        and.push({
+          id: { [Op.notIn]: usuarioIdsComEmpresa.length > 0 ? usuarioIdsComEmpresa : [-1] },
+        });
+      }
+    }
+
+    if (query.dataCadastroInicio || query.dataCadastroFim) {
+      const range: Record<symbol, Date> = {};
+      if (query.dataCadastroInicio) range[Op.gte] = new Date(query.dataCadastroInicio);
+      if (query.dataCadastroFim) range[Op.lte] = new Date(query.dataCadastroFim);
+      and.push({ dataCadastro: range });
+    }
+
+    return and.length > 0 ? { [Op.and]: and } : {};
   }
 }
