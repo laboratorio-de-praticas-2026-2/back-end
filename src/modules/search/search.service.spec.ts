@@ -281,10 +281,10 @@ describe('SearchService', () => {
     const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
     const fim = (chamada.where as Record<symbol, { dataCadastro: Record<symbol, Date> }>)[Op.and][0]
       .dataCadastro[Op.lte];
-    expect(fim.getHours()).toBe(23);
-    expect(fim.getMinutes()).toBe(59);
-    expect(fim.getSeconds()).toBe(59);
-    expect(fim.getMilliseconds()).toBe(999);
+    expect(fim.getUTCHours()).toBe(23);
+    expect(fim.getUTCMinutes()).toBe(59);
+    expect(fim.getUTCSeconds()).toBe(59);
+    expect(fim.getUTCMilliseconds()).toBe(999);
   });
 
   it('lança BadRequestException para regimeTributario inválido sem consultar o banco', async () => {

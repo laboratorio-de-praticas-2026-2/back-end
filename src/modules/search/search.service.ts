@@ -219,7 +219,7 @@ export class SearchService {
         if (Number.isNaN(fim.getTime())) {
           throw new BadRequestException('dataCadastroFim inválida.');
         }
-        fim.setHours(23, 59, 59, 999);
+        fim.setUTCHours(23, 59, 59, 999);
         range[Op.lte] = fim;
       }
 
