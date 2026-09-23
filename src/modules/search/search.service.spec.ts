@@ -156,7 +156,13 @@ describe('SearchService', () => {
     expect(result.pageSize).toBe(20);
     expect(result.results).toHaveLength(1);
     expect(usuarioModel.findAndCountAll).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {}, limit: 20, offset: 0, distinct: true }),
+      expect.objectContaining({
+        where: {},
+        limit: 20,
+        offset: 0,
+        distinct: true,
+        order: [['id', 'ASC']],
+      }),
     );
     expect(empresaModel.findAll).not.toHaveBeenCalled();
   });
@@ -244,5 +250,56 @@ describe('SearchService', () => {
     expect(usuarioModel.findAndCountAll).toHaveBeenCalledWith(
       expect.objectContaining({ offset: 100, limit: 100 }),
     );
+  });
+
+  it('lança BadRequestException quando searchByDocument recebe um valor não-string', async () => {
+    await expect(
+      service.searchByDocument(['123'] as unknown as string, NivelUsuarioEnum.administrador),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(usuarioModel.findOne).not.toHaveBeenCalled();
+  });
+
+  it('lança BadRequestException para dataCadastroInicio inválida sem consultar o banco', async () => {
+    await expect(
+      service.advancedSearch({ dataCadastroInicio: 'data-invalida' }, NivelUsuarioEnum.administrador),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
+  });
+
+  it('lança BadRequestException para dataCadastroFim inválida sem consultar o banco', async () => {
+    await expect(
+      service.advancedSearch({ dataCadastroFim: 'data-invalida' }, NivelUsuarioEnum.administrador),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
+  });
+
+  it('advancedSearch normaliza dataCadastroFim para o fim do dia (23:59:59.999)', async () => {
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await service.advancedSearch({ dataCadastroFim: '2024-01-31' }, NivelUsuarioEnum.administrador);
+
+    const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
+    const fim = (chamada.where as Record<symbol, { dataCadastro: Record<symbol, Date> }>)[Op.and][0]
+      .dataCadastro[Op.lte];
+    expect(fim.getHours()).toBe(23);
+    expect(fim.getMinutes()).toBe(59);
+    expect(fim.getSeconds()).toBe(59);
+    expect(fim.getMilliseconds()).toBe(999);
+  });
+
+  it('lança BadRequestException para regimeTributario inválido sem consultar o banco', async () => {
+    await expect(
+      service.advancedSearch({ regimeTributario: 'invalido' }, NivelUsuarioEnum.administrador),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(empresaModel.findAll).not.toHaveBeenCalled();
+    expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
+  });
+
+  it('lança BadRequestException para possuiEmpresa inválido sem consultar o banco', async () => {
+    await expect(
+      service.advancedSearch({ possuiEmpresa: 'sim' }, NivelUsuarioEnum.administrador),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(empresaModel.findAll).not.toHaveBeenCalled();
+    expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
   });
 });

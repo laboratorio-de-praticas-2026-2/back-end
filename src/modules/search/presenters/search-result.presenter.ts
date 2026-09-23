@@ -1,3 +1,4 @@
+import { NivelUsuarioEnum } from '../../../commons/constantes/nivel-usuario-enum.js';
 import type { UserRole } from '../../../commons/decorators/current-role.decorator.js';
 import { maskDocument } from '../../../commons/validators/document.validator.js';
 
@@ -27,7 +28,7 @@ export interface EmpresaWithUsuarioRecord extends EmpresaRecord {
 }
 
 function presentEmpresaResumo(empresa: EmpresaRecord, role: UserRole) {
-  if (role === 'administrador') {
+  if (role === NivelUsuarioEnum.administrador) {
     return {
       id: empresa.id,
       razaoSocial: empresa.razaoSocial,
@@ -51,7 +52,7 @@ function presentEmpresaResumo(empresa: EmpresaRecord, role: UserRole) {
 export function presentUsuario(usuario: UsuarioRecord, role: UserRole) {
   const empresas = usuario.empresas.map((empresa) => presentEmpresaResumo(empresa, role));
 
-  if (role === 'administrador') {
+  if (role === NivelUsuarioEnum.administrador) {
     return {
       id: usuario.id,
       nome: usuario.nome,
@@ -73,7 +74,7 @@ export function presentUsuario(usuario: UsuarioRecord, role: UserRole) {
 export function presentEmpresa(empresa: EmpresaWithUsuarioRecord, role: UserRole) {
   const empresaResumo = presentEmpresaResumo(empresa, role);
 
-  if (role === 'administrador') {
+  if (role === NivelUsuarioEnum.administrador) {
     return {
       ...empresaResumo,
       titular: { id: empresa.usuario.id, nome: empresa.usuario.nome, email: empresa.usuario.email },

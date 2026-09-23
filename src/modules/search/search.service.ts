@@ -43,7 +43,7 @@ export class SearchService {
       throw new ForbiddenException('Acesso restrito a administradores.');
     }
 
-    if (!rawDoc?.trim()) {
+    if (typeof rawDoc !== 'string' || !rawDoc.trim()) {
       throw new BadRequestException('Informe um CPF ou CNPJ para busca.');
     }
 
@@ -82,7 +82,9 @@ export class SearchService {
       const empresa = await this.empresaModel.findOne({
         where: { cnpj: onlyDigits(rawDoc) },
         attributes: EMPRESA_ATTRIBUTES,
-        include: [{ model: Usuario, as: 'usuario', attributes: ['id', 'nome', 'email'] }],
+        include: [
+          { model: Usuario, as: 'usuario', attributes: ['id', 'nome', 'email'], required: true },
+        ],
       });
 
       if (!empresa) {
@@ -120,6 +122,7 @@ export class SearchService {
       limit: pageSize,
       offset: (page - 1) * pageSize,
       distinct: true,
+      order: [['id', 'ASC']],
     });
 
     return {
@@ -133,7 +136,7 @@ export class SearchService {
   private async buildWhere(query: AdvancedSearchQueryDto): Promise<WhereOptions> {
     const and: WhereOptions[] = [];
 
-    if (query.nome?.trim()) {
+    if (typeof query.nome === 'string' && query.nome.trim()) {
       const nome = escapeLikeValue(query.nome.trim());
       const empresasComNome = await this.empresaModel.findAll({
         where: {
@@ -153,7 +156,7 @@ export class SearchService {
       });
     }
 
-    if (query.cpfCnpj?.trim()) {
+    if (typeof query.cpfCnpj === 'string' && query.cpfCnpj.trim()) {
       const digits = onlyDigits(query.cpfCnpj);
       const empresasComCnpj = await this.empresaModel.findAll({
         where: { cnpj: { [Op.like]: `%${digits}%` } },
@@ -168,10 +171,13 @@ export class SearchService {
       });
     }
 
-    if (
-      query.regimeTributario &&
-      (REGIMES_TRIBUTARIOS as readonly string[]).includes(query.regimeTributario)
-    ) {
+    if (query.regimeTributario) {
+      if (!(REGIMES_TRIBUTARIOS as readonly string[]).includes(query.regimeTributario)) {
+        throw new BadRequestException(
+          `regimeTributario inválido. Valores aceitos: ${REGIMES_TRIBUTARIOS.join(', ')}.`,
+        );
+      }
+
       const empresasDoRegime = await this.empresaModel.findAll({
         where: { regimeTributario: query.regimeTributario as (typeof REGIMES_TRIBUTARIOS)[number] },
         attributes: ['usuarioId'],
@@ -180,7 +186,11 @@ export class SearchService {
       and.push({ id: { [Op.in]: usuarioIds.length > 0 ? usuarioIds : [-1] } });
     }
 
-    if (query.possuiEmpresa === 'true' || query.possuiEmpresa === 'false') {
+    if (query.possuiEmpresa !== undefined) {
+      if (query.possuiEmpresa !== 'true' && query.possuiEmpresa !== 'false') {
+        throw new BadRequestException("possuiEmpresa deve ser 'true' ou 'false'.");
+      }
+
       const todasAsEmpresas = await this.empresaModel.findAll({ attributes: ['usuarioId'] });
       const usuarioIdsComEmpresa = [...new Set(todasAsEmpresas.map((empresa) => empresa.usuarioId))];
 
@@ -195,8 +205,24 @@ export class SearchService {
 
     if (query.dataCadastroInicio || query.dataCadastroFim) {
       const range: Record<symbol, Date> = {};
-      if (query.dataCadastroInicio) range[Op.gte] = new Date(query.dataCadastroInicio);
-      if (query.dataCadastroFim) range[Op.lte] = new Date(query.dataCadastroFim);
+
+      if (query.dataCadastroInicio) {
+        const inicio = new Date(query.dataCadastroInicio);
+        if (Number.isNaN(inicio.getTime())) {
+          throw new BadRequestException('dataCadastroInicio inválida.');
+        }
+        range[Op.gte] = inicio;
+      }
+
+      if (query.dataCadastroFim) {
+        const fim = new Date(query.dataCadastroFim);
+        if (Number.isNaN(fim.getTime())) {
+          throw new BadRequestException('dataCadastroFim inválida.');
+        }
+        fim.setHours(23, 59, 59, 999);
+        range[Op.lte] = fim;
+      }
+
       and.push({ dataCadastro: range });
     }
 
