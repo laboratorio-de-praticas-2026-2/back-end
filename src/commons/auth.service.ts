@@ -10,14 +10,16 @@ export interface JwtUserPayload {
 
 @Injectable()
 export class AuthService {
-  private JWT_SECRET = process.env.JWT_SECRET || 'secret';
+  private JWT_SECRET: string | undefined = process.env.JWT_SECRET;
 
   private readonly logger = new Logger(AuthService.name);
 
   verifyToken(token?: string): JwtUserPayload | null {
-    this.logger.log('Verificando token:', token);
+    this.logger.log('Verificando token');
 
     if (!token) return null;
+
+    if (!this.JWT_SECRET) return null;
 
     try {
       const decoded = jwt.verify(token, this.JWT_SECRET) as JwtUserPayload;
