@@ -1,122 +1,292 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank">
-    <img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" />
-  </a>
-</p>
+# Portal Contábil
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+O **Portal Contábil** é uma plataforma digital voltada à gestão contábil, fiscal e tributária de pessoas físicas e jurídicas.
 
-<p align="center">
-  A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.
-</p>
+A proposta é reunir, em um único ambiente, a consulta de obrigações, a solicitação de serviços e a comunicação entre clientes e o escritório de contabilidade.
 
-<p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-<a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-<a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
+Projeto acadêmico desenvolvido pelas turmas da **FATEC Registro**, no **Laboratório de Práticas 2026/2**.
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
-```
-
-## Compile and run the project
-
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS.
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com).
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow NestJS on X and LinkedIn.
-- Looking for a job, or have a job to offer? Check out the official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - https://nestjs.com
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+> **Projeto em desenvolvimento.** Os recursos apresentados abaixo descrevem o escopo da plataforma e estão sendo implementados gradualmente.
 
 ---
+
+## Funcionalidades
+
+### Catálogo de serviços
+
+Vitrine pública com informações sobre os serviços oferecidos pelo escritório, como:
+
+* Abertura de empresa;
+* Contabilidade mensal;
+* Folha de pagamento;
+* Declaração de Imposto de Renda.
+
+### Portal do cliente
+
+Cadastro de pessoas físicas e jurídicas, autenticação e acesso às solicitações, aos documentos e ao andamento dos serviços vinculados ao cliente.
+
+### Obrigações fiscais
+
+Consulta de guias, valores, vencimentos e situação das obrigações, incluindo:
+
+* DAS;
+* DARF;
+* INSS;
+* FGTS;
+* Imposto de Renda.
+
+As informações são apresentadas conforme os dados disponibilizados no sistema.
+
+### Atendimento
+
+Recursos destinados à comunicação entre clientes e o escritório, incluindo:
+
+* Agendamento de reuniões;
+* Informações de contato;
+* Chat para atendimento.
+
+### Painel administrativo
+
+Gerenciamento de:
+
+* Serviços;
+* Descrições;
+* Honorários;
+* Anúncios;
+* Perfis de usuários.
+
+Os serviços ativos cadastrados no painel administrativo alimentam a vitrine pública da plataforma.
+
+### Indicadores e relatórios
+
+Dashboard com métricas relacionadas à operação, além de recursos como:
+
+* Geração de relatórios;
+* Geração de recibos em PDF;
+* Simuladores de tributos;
+* Simuladores de parcelamentos.
+
+### Conteúdo e notificações
+
+A plataforma também poderá disponibilizar:
+
+* Blog;
+* Perguntas frequentes;
+* Mapa de parceiros;
+* Alertas de vencimentos;
+* Recomendações de serviços conforme o perfil do cliente.
+
+---
+
+## Arquitetura
+
+A aplicação é organizada em repositórios separados:
+
+| Componente     | Responsabilidade                             | Repositório |
+| -------------- | -------------------------------------------- | ----------- |
+| Frontend       | Interface web, navegação e consumo da API.   | `front-end` |
+| Backend        | API, regras de negócio e controle de acesso. | `back-end`  |
+| Banco de dados | Estrutura e configuração da persistência.    | `database`  |
+
+O frontend se comunica com a API, que processa as requisições e realiza as operações no banco de dados.
+
+A aplicação é dividida em três áreas principais:
+
+* **Vitrine pública:** apresenta o catálogo de serviços;
+* **Portal do cliente:** reúne informações individuais de cada cliente;
+* **Painel administrativo:** permite gerenciar os dados e recursos da plataforma.
+
+---
+
+## Tecnologias
+
+### Frontend
+
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+
+![Tailwind_CSS](https://img.shields.io/badge/Tailwind_CSS-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=06B6D4)
+\
+
+### Backend
+
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
+
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+
+API desenvolvida em NestJS, utilizando o adaptador Express.
+
+### Banco de dados e design
+
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+
+![Figma](https://img.shields.io/badge/Figma-000000?style=for-the-badge&logo=figma&logoColor=F24E1E)
+
+MySQL é o banco previsto no projeto. As instruções de configuração estão no repositório de banco de dados.
+
+
+Qualidade de código
+
+**Frontend**
+
+* ESLint.
+
+**Backend**
+
+* Oxlint;
+* Prettier;
+* Vitest;
+* Supertest.
+
+---
+
+## Requisitos
+
+Para executar o projeto, é necessário possuir:
+
+* Git;
+* Node.js;
+* npm;
+* Banco de dados configurado para os recursos que dependem de persistência;
+* Docker e Docker Compose, caso a configuração de ambiente utilizada exija containers.
+
+Consulte as configurações de cada repositório para verificar a versão do Node.js adotada e os requisitos específicos de cada ambiente.
+
+---
+
+## Como executar
+
+### 1. Clonar os repositórios
+
+Em uma pasta de sua preferência, execute:
+
+```bash
+git clone https://github.com/laboratorio-de-praticas-2026-2/back-end.git
+git clone https://github.com/laboratorio-de-praticas-2026-2/front-end.git
+git clone https://github.com/laboratorio-de-praticas-2026-2/database.git
+```
+
+### 2. Configurar o ambiente
+
+Configure o banco de dados conforme as instruções disponíveis no repositório `database`.
+
+Nos repositórios da aplicação, utilize o arquivo `.env.example`, quando disponível, como referência para criar os arquivos de ambiente esperados pelo código.
+
+A execução de funcionalidades integradas depende da configuração correta:
+
+* Da API;
+* Do banco de dados;
+* Dos serviços externos utilizados por cada módulo.
+
+### 3. Iniciar o backend
+
+Em um terminal, acesse o repositório do backend:
+
+```bash
+cd back-end
+npm install
+npm run start:dev
+```
+
+### 4. Iniciar o frontend
+
+Em outro terminal, acesse o repositório do frontend:
+
+```bash
+cd front-end
+npm install
+npm run dev
+```
+
+Acesse no navegador o endereço informado pelo servidor do frontend no terminal.
+
+> Configure o frontend e o backend para utilizarem portas diferentes e ajuste o endereço da API consumida pelo frontend.
+>
+> Os comandos apresentados iniciam os servidores de desenvolvimento. A configuração do banco de dados e das integrações deve estar concluída para que os respectivos recursos funcionem corretamente.
+
+---
+
+## Variáveis de ambiente
+
+As variáveis de ambiente devem seguir os nomes definidos no código e nos arquivos de exemplo de cada repositório.
+
+Conforme as integrações implementadas, elas podem incluir:
+
+* Conexão com o banco de dados;
+* Porta do servidor;
+* Endereço da API;
+* Credenciais de serviços externos;
+* Configurações de autenticação.
+
+### Boas práticas
+
+* Não versione senhas, tokens ou arquivos de ambiente que contenham segredos;
+* Mantenha credenciais de banco de dados e autenticação no servidor;
+* Utilize arquivos como `.env.example` apenas para documentar os nomes das variáveis necessárias;
+* No Next.js, variáveis com o prefixo `NEXT_PUBLIC_` ficam disponíveis no navegador e devem ser utilizadas apenas para informações públicas.
+
+---
+
+## Testes e verificação
+
+### Backend
+
+Dentro do repositório `back-end`:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Para executar os testes ponta a ponta, com o ambiente e a configuração de testes preparados:
+
+```bash
+npm run test:e2e
+```
+
+### Frontend
+
+Dentro do repositório `front-end`:
+
+```bash
+npm run lint
+npm run build
+```
+
+O frontend ainda não possui um script `test` definido no `package.json` consultado.
+
+A validação da interface deve contemplar:
+
+* Navegação;
+* Responsividade;
+* Integração com a API;
+* Comportamento dos componentes;
+* Tratamento de erros nas requisições.
+
+---
+
+## Links
+
+* [Organização do projeto no GitHub](#)
+* [Protótipo no Figma](#)
+* [Código do frontend](https://github.com/laboratorio-de-praticas-2026-2/front-end)
+* [Código do backend](https://github.com/laboratorio-de-praticas-2026-2/back-end)
+* [Banco de dados](https://github.com/laboratorio-de-praticas-2026-2/database)
+
+---
+
+## Licença
+
+A licença de distribuição do projeto ainda precisa ser formalizada.
+
+Atualmente, o backend está identificado como `UNLICENSED` em seu arquivo `package.json`.
+
 
 ## Integração das configurações de contato aos fluxos de disparo
 
