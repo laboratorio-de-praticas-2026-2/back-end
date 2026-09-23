@@ -112,3 +112,25 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Endpoints: Tipos de Atendimento (Issue #30)
+
+### 1. Listar tipos de atendimento ativos
+* **Rota:** `GET /tipos-atendimento`
+* **Status:** `200 OK`
+* **Exemplo de Resposta:**
+```json
+[
+  {
+    "id": 1,
+    "nome": "Reunião com o contador",
+    "descricao": "Atendimento presencial ou online para consultoria contábil",
+    "ativo": true
+  },
+  {
+    "id": 2,
+    "nome": "Entrega de documentos físicos",
+    "descricao": "Entrega presencial de documentação no escritório",
+    "ativo": true
+  }
+]
