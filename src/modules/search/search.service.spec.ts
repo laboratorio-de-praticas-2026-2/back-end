@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/sequelize';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Op } from 'sequelize';
@@ -36,16 +36,30 @@ describe('SearchService', () => {
     service = module.get<SearchService>(SearchService);
   });
 
+  it('lança ForbiddenException quando o papel não é administrador (searchByDocument)', async () => {
+    await expect(
+      service.searchByDocument('529.982.247-25', NivelUsuarioEnum.cliente),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(usuarioModel.findOne).not.toHaveBeenCalled();
+  });
+
+  it('lança ForbiddenException quando o papel não é administrador (advancedSearch)', async () => {
+    await expect(
+      service.advancedSearch({}, NivelUsuarioEnum.cliente),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
+  });
+
   it('lança BadRequestException para documento inválido', async () => {
     await expect(
-      service.searchByDocument('123', NivelUsuarioEnum.cliente),
+      service.searchByDocument('123', NivelUsuarioEnum.administrador),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(usuarioModel.findOne).not.toHaveBeenCalled();
   });
 
   it('lança BadRequestException para CPF com dígito verificador errado', async () => {
     await expect(
-      service.searchByDocument('529.982.247-24', NivelUsuarioEnum.cliente),
+      service.searchByDocument('529.982.247-24', NivelUsuarioEnum.administrador),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -63,7 +77,7 @@ describe('SearchService', () => {
     );
   });
 
-  it('retorna os dados presentes quando o CPF é encontrado (papel cliente mascara)', async () => {
+  it('retorna os dados completos quando o CPF é encontrado (papel administrador)', async () => {
     usuarioModel.findOne.mockResolvedValue({
       toJSON: () => ({
         id: 1,
@@ -76,12 +90,20 @@ describe('SearchService', () => {
       }),
     });
 
-    const result = await service.searchByDocument('529.982.247-25', NivelUsuarioEnum.cliente);
+    const result = await service.searchByDocument('529.982.247-25', NivelUsuarioEnum.administrador);
 
     expect(result).toEqual({
       found: true,
       tipo: 'pessoa_fisica',
-      data: { nome: 'Cliente Teste', cpfCnpj: '********725', empresas: [] },
+      data: {
+        id: 1,
+        nome: 'Cliente Teste',
+        email: 'cliente@example.com',
+        celular: '11999998888',
+        cpfCnpj: '52998224725',
+        dataCadastro: new Date('2024-01-01'),
+        empresas: [],
+      },
     });
   });
 
@@ -143,7 +165,10 @@ describe('SearchService', () => {
     empresaModel.findAll.mockResolvedValue([]);
     usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
 
-    const result = await service.advancedSearch({ nome: 'Inexistente' }, NivelUsuarioEnum.cliente);
+    const result = await service.advancedSearch(
+      { nome: 'Inexistente' },
+      NivelUsuarioEnum.administrador,
+    );
 
     expect(result).toEqual({ total: 0, page: 1, pageSize: 20, results: [] });
   });
@@ -171,6 +196,23 @@ describe('SearchService', () => {
           [Op.or]: [{ nome: { [Op.like]: '%Acme%' } }, { id: { [Op.in]: [7] } }],
         },
       ],
+    });
+  });
+
+  it('advancedSearch escapa curingas de LIKE no filtro nome', async () => {
+    empresaModel.findAll.mockResolvedValue([]);
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await service.advancedSearch({ nome: '100%_off' }, NivelUsuarioEnum.administrador);
+
+    expect(empresaModel.findAll).toHaveBeenCalledWith({
+      where: {
+        [Op.or]: [
+          { razaoSocial: { [Op.like]: '%100\\%\\_off%' } },
+          { nomeFantasia: { [Op.like]: '%100\\%\\_off%' } },
+        ],
+      },
+      attributes: ['usuarioId'],
     });
   });
 

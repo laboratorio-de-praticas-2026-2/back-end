@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Op, WhereOptions } from 'sequelize';
+import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
 import type { UserRole } from '../../commons/decorators/current-role.decorator.js';
 import {
   classifyDocument,
@@ -26,6 +27,10 @@ const EMPRESA_ATTRIBUTES = [
 ];
 const REGIMES_TRIBUTARIOS = ['mei', 'simples_nacional', 'lucro_presumido', 'lucro_real'] as const;
 
+function escapeLikeValue(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
 @Injectable()
 export class SearchService {
   constructor(
@@ -34,6 +39,10 @@ export class SearchService {
   ) {}
 
   async searchByDocument(rawDoc: string | undefined, role: UserRole) {
+    if (role !== NivelUsuarioEnum.administrador) {
+      throw new ForbiddenException('Acesso restrito a administradores.');
+    }
+
     if (!rawDoc?.trim()) {
       throw new BadRequestException('Informe um CPF ou CNPJ para busca.');
     }
@@ -96,6 +105,10 @@ export class SearchService {
   }
 
   async advancedSearch(query: AdvancedSearchQueryDto, role: UserRole) {
+    if (role !== NivelUsuarioEnum.administrador) {
+      throw new ForbiddenException('Acesso restrito a administradores.');
+    }
+
     const page = Math.max(1, Number.parseInt(query.page ?? '1', 10) || 1);
     const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.pageSize ?? '20', 10) || 20));
     const where = await this.buildWhere(query);
@@ -121,7 +134,7 @@ export class SearchService {
     const and: WhereOptions[] = [];
 
     if (query.nome?.trim()) {
-      const nome = query.nome.trim();
+      const nome = escapeLikeValue(query.nome.trim());
       const empresasComNome = await this.empresaModel.findAll({
         where: {
           [Op.or]: [
