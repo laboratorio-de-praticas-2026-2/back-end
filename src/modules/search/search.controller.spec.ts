@@ -4,6 +4,9 @@ import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js
 import { SearchController } from './search.controller.js';
 import { SearchService } from './search.service.js';
 
+const admin = { id: 1, role: NivelUsuarioEnum.administrador };
+const cliente = { id: 5, role: NivelUsuarioEnum.cliente };
+
 describe('SearchController', () => {
   let controller: SearchController;
   let service: {
@@ -29,21 +32,15 @@ describe('SearchController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('GET /search/document delega ao service com o doc e o papel resolvidos', async () => {
-    await controller.searchByDocument({ doc: '52998224725' }, NivelUsuarioEnum.administrador);
+  it('GET /search/document delega ao service com o doc e o usuário autenticado', async () => {
+    await controller.searchByDocument({ doc: '52998224725' }, admin);
 
-    expect(service.searchByDocument).toHaveBeenCalledWith(
-      '52998224725',
-      NivelUsuarioEnum.administrador,
-    );
+    expect(service.searchByDocument).toHaveBeenCalledWith('52998224725', admin);
   });
 
-  it('GET /search/advanced delega ao service com os filtros e o papel resolvidos', async () => {
-    await controller.advancedSearch({ nome: 'Acme' }, NivelUsuarioEnum.cliente);
+  it('GET /search/advanced delega ao service com os filtros e o usuário autenticado', async () => {
+    await controller.advancedSearch({ nome: 'Acme' }, cliente);
 
-    expect(service.advancedSearch).toHaveBeenCalledWith(
-      { nome: 'Acme' },
-      NivelUsuarioEnum.cliente,
-    );
+    expect(service.advancedSearch).toHaveBeenCalledWith({ nome: 'Acme' }, cliente);
   });
 });
