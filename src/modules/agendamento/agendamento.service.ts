@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
 
 export class TipoAtendimento {
   id: number;
@@ -7,13 +8,8 @@ export class TipoAtendimento {
   ativo: boolean;
 }
 
-export class CriarTipoAtendimentoDto {
-  nome: string;
-  descricao: string;
-}
-
 @Injectable()
-export class TiposAtendimentoService {
+export class AgendamentoService {
   private tiposAtendimento: TipoAtendimento[] = [
     {
       id: 1,
