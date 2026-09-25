@@ -24,6 +24,6 @@ export class ContatoController {
   @Post('cadastro-pj')
   @HttpCode(HttpStatus.CREATED)
   async cadastrarPj(@Body() dto: CadastroPjDto) {
-    return await this.authService.cadastrarPj(dto);
+    return await this.contatoService.cadastrarPj(dto); 
   }
 }
