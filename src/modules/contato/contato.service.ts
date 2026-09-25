@@ -1,12 +1,21 @@
 import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/sequelize';
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
 import { CadastroPjDto } from './dto/cadastro-pj.dto.js';
 import * as crypto from 'crypto';
 
+// Modelos do Sequelize
+import { Usuario } from './entities/usuario.entity.js';
+import { Empresa } from './entities/empresa.entity.js';
+
 @Injectable()
 export class ContatoService {
-  private usuarios: any[] = [];
-  private empresas: any[] = [];
+  constructor(
+    @InjectModel(Usuario)
+    private readonly usuarioModel: typeof Usuario,
+    @InjectModel(Empresa)
+    private readonly empresaModel: typeof Empresa,
+  ) {}
 
   private infoContact = {
     whatsapp: '00 00000-0000',
@@ -29,12 +38,8 @@ export class ContatoService {
     return this.infoContact;
   }
 
-  private hashSenha(senha: string): string {
-    return crypto.createHash('sha256').update(senha).digest('hex');
-  }
-
   private validarCnpj(cnpj: string): boolean {
-    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$|^\d{14}$/.test(cnpj);
+    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$\vert{}^\d{14}$/.test(cnpj);
   }
 
   private validarCpfCnpj(doc: string): boolean {
@@ -67,31 +72,33 @@ export class ContatoService {
     const cnpjLimpo = dto.cnpj.replace(/\D/g, '');
     const cpfCnpjRespLimpo = dto.cpf_cnpj ? dto.cpf_cnpj.replace(/\D/g, '') : null;
 
-    const emailExiste = this.usuarios.find((u) => u.email === dto.email);
+    // 1. Busca no Banco de Dados via Sequelize
+    const emailExiste = await this.usuarioModel.findOne({ where: { email: dto.email } });
     if (emailExiste) {
       throw new ConflictException('E-mail já cadastrado.');
     }
 
-    const cnpjExiste = this.empresas.find((e) => e.cnpj === cnpjLimpo);
+    const cnpjExiste = await this.empresaModel.findOne({ where: { cnpj: cnpjLimpo } });
     if (cnpjExiste) {
       throw new ConflictException('CNPJ já cadastrado.');
     }
 
-    const senhaHash = this.hashSenha(dto.senha);
+    // 2. Hash seguro de senha usando o módulo nativo crypto (pbkdf2)
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(dto.senha, salt, 1000, 64, 'sha512').toString('hex');
+    const senhaHash = `${salt}:${hash}`;
 
-    const novoUsuario = {
-      id: this.usuarios.length + 1,
+    // 3. Persistência real no Banco de Dados via Sequelize
+    const novoUsuario = await this.usuarioModel.create({
       nome: dto.nome,
       email: dto.email,
       senha: senhaHash,
       nivel: 'cliente',
       cpfCnpj: cpfCnpjRespLimpo,
       celular: dto.celular,
-      createdAt: new Date(),
-    };
+    });
 
-    const novaEmpresa = {
-      id: this.empresas.length + 1,
+    const novaEmpresa = await this.empresaModel.create({
       usuarioId: novoUsuario.id,
       razaoSocial: dto.razaoSocial,
       nomeFantasia: dto.nomeFantasia,
@@ -100,17 +107,14 @@ export class ContatoService {
       inscricaoEstadual: dto.inscricaoEstadual,
       inscricaoMunicipal: dto.inscricaoMunicipal,
       dataAbertura: dto.dataAbertura ? new Date(dto.dataAbertura) : null,
-      createdAt: new Date(),
-    };
+    });
 
-    this.usuarios.push(novoUsuario);
-    this.empresas.push(novaEmpresa);
-
-   const { senha: _senha, ...usuarioSemSenha } = novoUsuario;
+    const usuarioPlain = novoUsuario.get({ plain: true });
+    delete usuarioPlain.senha;
 
     return {
       mensagem: 'Cadastro PJ realizado com sucesso.',
-      usuario: usuarioSemSenha,
+      usuario: usuarioPlain,
       empresa: novaEmpresa,
     };
   }
