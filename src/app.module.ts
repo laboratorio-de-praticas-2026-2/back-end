@@ -8,6 +8,7 @@ import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+import { AgendamentoModule } from './modules/agendamento/agendamento.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -41,8 +42,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     DisparoModule,
     MensagemModule,
     DashboardModule,
+    AgendamentoModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
