@@ -1,19 +1,49 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SequelizeModule } from '@nestjs/sequelize';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { ContatoModule } from './modules/contato/contato.module.js';
+import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
+import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
+import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+import { SearchModule } from './modules/search/search.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
   imports: [
-    // Distributed tracing, auto-correlated logs, request/job metrics, error
-    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+
+    SequelizeModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        dialect: configService.get<string>('DB_DIALECT') as 'mysql',
+        host: configService.get<string>('DB_HOST'),
+        port: Number(configService.get<string>('DB_PORT')),
+        username: configService.get<string>('DB_USER'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
+        synchronize: false,
+        autoLoadModels: true,
+      }),
+    }),
+
     ObserveModule.forRoot({
       appKey: 'YOUR_APP_KEY',
       appSecret: 'YOUR_APP_SECRET',
       serviceId: 'back-end',
     }),
+
+    ContatoModule,
+    DisparoModule,
+    MensagemModule,
+    DashboardModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
