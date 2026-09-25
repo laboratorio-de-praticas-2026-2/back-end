@@ -34,7 +34,7 @@ export class ContatoService {
   }
 
   private validarCnpj(cnpj: string): boolean {
-    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2}$|^\d{14}$/.test(cnpj);
+    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$|^\d{14}$/.test(cnpj);
   }
 
   private validarCpfCnpj(doc: string): boolean {
@@ -106,7 +106,7 @@ export class ContatoService {
     this.usuarios.push(novoUsuario);
     this.empresas.push(novaEmpresa);
 
-    const { senha, ...usuarioSemSenha } = novoUsuario;
+   const { senha: _senha, ...usuarioSemSenha } = novoUsuario;
 
     return {
       mensagem: 'Cadastro PJ realizado com sucesso.',
