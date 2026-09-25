@@ -31,6 +31,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         database: configService.get<string>('DB_NAME'),
         models: [Usuario],
         synchronize: false,
+        autoLoadModels: true,
       }),
     }),
 

@@ -11,8 +11,9 @@ export interface JwtUserPayload {
 @Injectable()
 export class AuthService {
   private JWT_SECRET = process.env.JWT_SECRET || 'secret';
-
   private readonly logger = new Logger(AuthService.name);
+
+  constructor() {}
 
   verifyToken(token?: string): JwtUserPayload | null {
     this.logger.log('Verificando token:', token);
