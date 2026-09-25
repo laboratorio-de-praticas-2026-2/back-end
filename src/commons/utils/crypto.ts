@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { promisify } from 'util';
+
+const scryptAsync = promisify(crypto.scrypt);
 
 @Injectable()
 export class CryptoUtil {
@@ -38,5 +41,7 @@ export class CryptoUtil {
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  return crypto.createHash('sha256').update(password).digest('hex');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${salt}:${derivedKey.toString('hex')}`;
 }

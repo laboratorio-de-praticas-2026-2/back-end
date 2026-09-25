@@ -56,8 +56,8 @@ export class AuthService {
       }
     }
 
-    // 4. Hash seguro da senha via módulo crypto nativo
-    const senhaHash = await hashPassword(dto.senha);
+    // 4. Hash seguro da senha usando o padrão scrypt da PR #52
+const senhaHash = await hashPassword(dto.senha);
 
     // 5. Retorno com sucesso e estrutura compatível com a tabela 'Usuario'
     return {
