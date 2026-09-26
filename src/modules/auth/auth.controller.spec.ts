@@ -185,6 +185,23 @@ describe('Autenticação (HTTP)', () => {
         .expect(403);
     });
 
+    it('200 para administrador em PUT /contato', async () => {
+      const token = await tokenDe('admin@teste.com');
+      await request(app.getHttpServer())
+        .put('/contato')
+        .set('Authorization', `Bearer ${token}`)
+        .send({})
+        .expect(200);
+    });
+
+    it('200 para administrador em GET /mensagem', async () => {
+      const token = await tokenDe('admin@teste.com');
+      await request(app.getHttpServer())
+        .get('/mensagem')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+    });
+
     it('401 sem token', async () => {
       await request(app.getHttpServer()).get('/teste/admin').expect(401);
     });
