@@ -9,17 +9,22 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Op } from 'sequelize';
 import { JwtUserPayload } from '../../commons/auth.service.js';
 import { CreateConversaDto } from './dto/create-conversa.dto.js';
+import { CreateMensagemDto } from './dto/create-mensagem.dto.js';
 import { UpdateStatusConversaDto } from './dto/update-status-conversa.dto.js';
 import { Conversa } from './entities/conversa.entity.js';
+import { Mensagem } from './entities/mensagem.entity.js';
 import { StatusConversa } from './enums/status-conversa.enum.js';
 
 const ATENDENTE_NIVEIS = new Set(['atendente', 'administrador']);
 
 @Injectable()
 export class ChatService {
-  constructor(
+constructor(
     @InjectModel(Conversa)
     private readonly conversaModel: typeof Conversa,
+
+    @InjectModel(Mensagem)
+    private readonly mensagemModel: typeof Mensagem,
   ) {}
 
   async criarConversa(
@@ -89,6 +94,32 @@ export class ChatService {
     }
     this.validarAcesso(conversa, usuario);
     return conversa;
+  }
+
+  async enviarMensagem(
+    conversaId: string,
+    dto: CreateMensagemDto,
+    usuario: JwtUserPayload,
+  ): Promise<Mensagem> {
+    await this.buscarConversa(conversaId, usuario);
+
+    return this.mensagemModel.create({
+      conversaId,
+      conteudo: dto.conteudo.trim(),
+      remetenteId: usuario.id,
+    });
+  }
+
+  async consultarHistorico(
+    conversaId: string,
+    usuario: JwtUserPayload,
+  ): Promise<Mensagem[]> {
+    await this.buscarConversa(conversaId, usuario);
+
+    return this.mensagemModel.findAll({
+      where: { conversaId },
+      order: [['criadoEm', 'ASC']],
+    });
   }
 
   async atualizarStatus(
