@@ -54,7 +54,7 @@ export default function Carrossel() {
   }, [current]);
 
   return (
-    <div className="relative w-full aspect-[1242/583] overflow-hidden select-none">
+    <div className="relative w-full h-[500px] md:h-auto md:aspect-[1242/583] overflow-hidden select-none">
       {/* Slides */}
       {slides.map((slide, index) => (
         <div
@@ -76,8 +76,8 @@ export default function Carrossel() {
           <div className="absolute inset-0 bg-black/35" />
 
           {/* Conteúdo sobreposto (Texto e Botão) */}
-          <div className="relative h-full max-w-[1440px] mx-auto px-10 md:px-20 flex flex-col justify-center items-start text-white">
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 drop-shadow-sm">
+          <div className="relative h-full max-w-[1440px] mx-auto px-6 md:px-20 flex flex-col justify-center items-start text-white">
+            <h2 className="text-2xl md:text-5xl font-bold mb-4 drop-shadow-sm">
               {slide.title}
             </h2>
             <p className="text-sm md:text-lg max-w-xl text-gray-100 leading-relaxed mb-6 drop-shadow-sm">
