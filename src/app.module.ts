@@ -4,7 +4,6 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-import { AuthModule } from './modules/auth/auth.module.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
@@ -42,7 +41,6 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'back-end',
     }),
 
-    AuthModule,
     ContatoModule,
     DisparoModule,
     MensagemModule,
