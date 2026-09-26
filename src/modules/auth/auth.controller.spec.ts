@@ -185,6 +185,14 @@ describe('Autenticação (HTTP)', () => {
         .expect(403);
     });
 
+    it('401 sem token em PUT /contato', async () => {
+      await request(app.getHttpServer()).put('/contato').send({}).expect(401);
+    });
+
+    it('401 sem token em GET /mensagem', async () => {
+      await request(app.getHttpServer()).get('/mensagem').expect(401);
+    });
+
     it('200 para administrador em PUT /contato', async () => {
       const token = await tokenDe('admin@teste.com');
       await request(app.getHttpServer())
