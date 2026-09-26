@@ -9,6 +9,14 @@ import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
+// Models Sequelize
+import { Servico } from './models/servico.model.js';
+import { Solicitacao } from './models/solicitacao.model.js';
+import { Obrigacao } from './models/obrigacao.model.js';
+import { Pagamento } from './models/pagamento.model.js';
+import { Parcela } from './models/parcela.model.js';
+import { ObrigacaoServico } from './models/obrigacao-servico.model.js';
+
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
@@ -27,7 +35,16 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
+        models: [
+          Servico,
+          Solicitacao,
+          Obrigacao,
+          Pagamento,
+          Parcela,
+          ObrigacaoServico,
+        ],
         synchronize: false,
+        logging: false,
       }),
     }),
 

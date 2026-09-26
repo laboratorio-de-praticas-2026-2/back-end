@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { SequelizeModule } from '@nestjs/sequelize';
+
 import { FinanceiroController } from './financeiro.controller.js';
 import { FinanceiroService } from './financeiro.service.js';
 import { ClientesController } from './clientes.controller.js';
@@ -14,7 +16,25 @@ import { ServicosService } from './servicos.service.js';
 import { GeralController } from './geral.controller.js';
 import { GeralService } from './geral.service.js';
 
+// Models Sequelize
+import { Obrigacao } from '../../models/obrigacao.model.js';
+import { Pagamento } from '../../models/pagamento.model.js';
+import { Parcela } from '../../models/parcela.model.js';
+import { Servico } from '../../models/servico.model.js';
+import { Solicitacao } from '../../models/solicitacao.model.js';
+import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
+
 @Module({
+  imports: [
+    SequelizeModule.forFeature([
+      Obrigacao,
+      Pagamento,
+      Parcela,
+      Servico,
+      Solicitacao,
+      ObrigacaoServico,
+    ]),
+  ],
   controllers: [
     FinanceiroController,
     ClientesController,
@@ -22,7 +42,7 @@ import { GeralService } from './geral.service.js';
     DocumentosController,
     FiscalController,
     ServicosController,
-    GeralController
+    GeralController,
   ],
   providers: [
     FinanceiroService,
@@ -31,7 +51,7 @@ import { GeralService } from './geral.service.js';
     DocumentosService,
     FiscalService,
     ServicosService,
-    GeralService
+    GeralService,
   ],
 })
 export class DashboardModule {}
