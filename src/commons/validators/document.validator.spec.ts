@@ -4,7 +4,6 @@ import {
   isValidCNPJ,
   isValidCPF,
   isValidDocument,
-  maskDocument,
   onlyDigits,
 } from './document.validator.js';
 
@@ -76,15 +75,5 @@ describe('isValidDocument', () => {
 
   it('rejeita documento com tamanho inválido', () => {
     expect(isValidDocument('123')).toBe(false);
-  });
-});
-
-describe('maskDocument', () => {
-  it('mantém os 3 últimos dígitos de um CPF e mascara o resto', () => {
-    expect(maskDocument('529.982.247-25')).toBe('********725');
-  });
-
-  it('mantém os 3 últimos dígitos de um CNPJ e mascara o resto', () => {
-    expect(maskDocument('11.222.333/0001-81')).toBe('***********181');
   });
 });

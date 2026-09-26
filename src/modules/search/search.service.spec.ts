@@ -8,6 +8,9 @@ import { Empresa } from '../../models/empresa.model.js';
 import { Usuario } from '../../models/usuario.model.js';
 import { SearchService } from './search.service.js';
 
+const admin = { id: 1, role: NivelUsuarioEnum.administrador };
+const cliente = { id: 5, role: NivelUsuarioEnum.cliente };
+
 function createModelMock() {
   return {
     findOne: vi.fn(),
@@ -36,37 +39,139 @@ describe('SearchService', () => {
     service = module.get<SearchService>(SearchService);
   });
 
-  it('lança ForbiddenException quando o papel não é administrador (searchByDocument)', async () => {
-    await expect(
-      service.searchByDocument('529.982.247-25', NivelUsuarioEnum.cliente),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+  it('lança ForbiddenException sem usuário autenticado (searchByDocument)', async () => {
+    await expect(service.searchByDocument('529.982.247-25', null)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
     expect(usuarioModel.findOne).not.toHaveBeenCalled();
   });
 
-  it('lança ForbiddenException quando o papel não é administrador (advancedSearch)', async () => {
-    await expect(
-      service.advancedSearch({}, NivelUsuarioEnum.cliente),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+  it('lança ForbiddenException sem usuário autenticado (advancedSearch)', async () => {
+    await expect(service.advancedSearch({}, null)).rejects.toBeInstanceOf(ForbiddenException);
     expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
+  });
+
+  it('cliente busca o próprio CPF: restringe a query ao próprio id e devolve os dados completos', async () => {
+    usuarioModel.findOne.mockResolvedValue({
+      toJSON: () => ({
+        id: 5,
+        nome: 'Cliente Teste',
+        email: 'cliente@example.com',
+        celular: null,
+        cpfCnpj: '52998224725',
+        dataCadastro: new Date('2024-01-01'),
+        empresas: [],
+      }),
+    });
+
+    const result = await service.searchByDocument('529.982.247-25', cliente);
+
+    expect(usuarioModel.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { cpfCnpj: '52998224725', id: 5 } }),
+    );
+    expect(result).toMatchObject({
+      found: true,
+      tipo: 'pessoa_fisica',
+      data: { id: 5, cpfCnpj: '52998224725', email: 'cliente@example.com' },
+    });
+  });
+
+  it('cliente busca CPF de terceiro: 403 sem revelar se o documento existe', async () => {
+    usuarioModel.findOne.mockResolvedValue(null);
+
+    await expect(service.searchByDocument('529.982.247-25', cliente)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('cliente busca CNPJ de empresa vinculada: restringe a query ao próprio usuarioId', async () => {
+    empresaModel.findOne.mockResolvedValue({
+      toJSON: () => ({
+        id: 9,
+        razaoSocial: 'Acme Ltda',
+        nomeFantasia: 'Acme',
+        cnpj: '11222333000181',
+        regimeTributario: 'simples_nacional',
+        dataAbertura: null,
+        inscricaoEstadual: null,
+        inscricaoMunicipal: null,
+        usuario: { id: 5, nome: 'Cliente Teste', email: 'cliente@example.com' },
+      }),
+    });
+
+    const result = await service.searchByDocument('11.222.333/0001-81', cliente);
+
+    expect(empresaModel.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { cnpj: '11222333000181', usuarioId: 5 } }),
+    );
+    expect(result).toMatchObject({ found: true, tipo: 'pessoa_juridica' });
+  });
+
+  it('cliente busca CNPJ de empresa não vinculada: 403 sem revelar se o documento existe', async () => {
+    empresaModel.findOne.mockResolvedValue(null);
+
+    await expect(service.searchByDocument('11.222.333/0001-81', cliente)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('cliente com documento inválido continua recebendo 400', async () => {
+    await expect(service.searchByDocument('123', cliente)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(usuarioModel.findOne).not.toHaveBeenCalled();
+  });
+
+  it('admin busca qualquer CPF sem restrição de id', async () => {
+    usuarioModel.findOne.mockResolvedValue(null);
+
+    await service.searchByDocument('529.982.247-25', admin);
+
+    const chamada = usuarioModel.findOne.mock.calls[0][0];
+    expect(chamada.where).toEqual({ cpfCnpj: '52998224725' });
+  });
+
+  it('advancedSearch de cliente sempre restringe ao próprio id', async () => {
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await service.advancedSearch({}, cliente);
+
+    const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
+    expect(chamada.where).toEqual({ [Op.and]: [{ id: 5 }] });
+  });
+
+  it('advancedSearch de cliente combina o escopo do id com os filtros informados', async () => {
+    empresaModel.findAll.mockResolvedValue([{ usuarioId: 7 }]);
+    usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
+
+    await service.advancedSearch({ nome: 'Acme' }, cliente);
+
+    const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
+    expect(chamada.where).toEqual({
+      [Op.and]: [
+        { id: 5 },
+        { [Op.or]: [{ nome: { [Op.like]: '%Acme%' } }, { id: { [Op.in]: [7] } }] },
+      ],
+    });
   });
 
   it('lança BadRequestException para documento inválido', async () => {
     await expect(
-      service.searchByDocument('123', NivelUsuarioEnum.administrador),
+      service.searchByDocument('123', admin),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(usuarioModel.findOne).not.toHaveBeenCalled();
   });
 
   it('lança BadRequestException para CPF com dígito verificador errado', async () => {
     await expect(
-      service.searchByDocument('529.982.247-24', NivelUsuarioEnum.administrador),
+      service.searchByDocument('529.982.247-24', admin),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('retorna found:false quando o CPF é válido mas não existe', async () => {
     usuarioModel.findOne.mockResolvedValue(null);
 
-    const result = await service.searchByDocument('529.982.247-25', NivelUsuarioEnum.administrador);
+    const result = await service.searchByDocument('529.982.247-25', admin);
 
     expect(result).toEqual({
       found: false,
@@ -90,7 +195,7 @@ describe('SearchService', () => {
       }),
     });
 
-    const result = await service.searchByDocument('529.982.247-25', NivelUsuarioEnum.administrador);
+    const result = await service.searchByDocument('529.982.247-25', admin);
 
     expect(result).toEqual({
       found: true,
@@ -122,7 +227,7 @@ describe('SearchService', () => {
       }),
     });
 
-    const result = await service.searchByDocument('11.222.333/0001-81', NivelUsuarioEnum.administrador);
+    const result = await service.searchByDocument('11.222.333/0001-81', admin);
 
     expect(result.found).toBe(true);
     expect((result as { tipo: string }).tipo).toBe('pessoa_juridica');
@@ -149,7 +254,7 @@ describe('SearchService', () => {
       ],
     });
 
-    const result = await service.advancedSearch({}, NivelUsuarioEnum.administrador);
+    const result = await service.advancedSearch({}, admin);
 
     expect(result.total).toBe(1);
     expect(result.page).toBe(1);
@@ -173,7 +278,7 @@ describe('SearchService', () => {
 
     const result = await service.advancedSearch(
       { nome: 'Inexistente' },
-      NivelUsuarioEnum.administrador,
+      admin,
     );
 
     expect(result).toEqual({ total: 0, page: 1, pageSize: 20, results: [] });
@@ -183,7 +288,7 @@ describe('SearchService', () => {
     empresaModel.findAll.mockResolvedValue([{ usuarioId: 7 }]);
     usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
 
-    await service.advancedSearch({ nome: 'Acme' }, NivelUsuarioEnum.administrador);
+    await service.advancedSearch({ nome: 'Acme' }, admin);
 
     expect(empresaModel.findAll).toHaveBeenCalledWith({
       where: {
@@ -209,7 +314,7 @@ describe('SearchService', () => {
     empresaModel.findAll.mockResolvedValue([]);
     usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
 
-    await service.advancedSearch({ nome: '100%_off' }, NivelUsuarioEnum.administrador);
+    await service.advancedSearch({ nome: '100%_off' }, admin);
 
     expect(empresaModel.findAll).toHaveBeenCalledWith({
       where: {
@@ -233,7 +338,7 @@ describe('SearchService', () => {
 
     await service.advancedSearch(
       { regimeTributario: 'simples_nacional', possuiEmpresa: 'true' },
-      NivelUsuarioEnum.administrador,
+      admin,
     );
 
     const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
@@ -245,7 +350,7 @@ describe('SearchService', () => {
   it('advancedSearch respeita page e pageSize informados, limitando pageSize a 100', async () => {
     usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
 
-    await service.advancedSearch({ page: '2', pageSize: '500' }, NivelUsuarioEnum.administrador);
+    await service.advancedSearch({ page: '2', pageSize: '500' }, admin);
 
     expect(usuarioModel.findAndCountAll).toHaveBeenCalledWith(
       expect.objectContaining({ offset: 100, limit: 100 }),
@@ -254,21 +359,21 @@ describe('SearchService', () => {
 
   it('lança BadRequestException quando searchByDocument recebe um valor não-string', async () => {
     await expect(
-      service.searchByDocument(['123'] as unknown as string, NivelUsuarioEnum.administrador),
+      service.searchByDocument(['123'] as unknown as string, admin),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(usuarioModel.findOne).not.toHaveBeenCalled();
   });
 
   it('lança BadRequestException para dataCadastroInicio inválida sem consultar o banco', async () => {
     await expect(
-      service.advancedSearch({ dataCadastroInicio: 'data-invalida' }, NivelUsuarioEnum.administrador),
+      service.advancedSearch({ dataCadastroInicio: 'data-invalida' }, admin),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
   });
 
   it('lança BadRequestException para dataCadastroFim inválida sem consultar o banco', async () => {
     await expect(
-      service.advancedSearch({ dataCadastroFim: 'data-invalida' }, NivelUsuarioEnum.administrador),
+      service.advancedSearch({ dataCadastroFim: 'data-invalida' }, admin),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
   });
@@ -276,7 +381,7 @@ describe('SearchService', () => {
   it('advancedSearch normaliza dataCadastroFim para o fim do dia (23:59:59.999)', async () => {
     usuarioModel.findAndCountAll.mockResolvedValue({ count: 0, rows: [] });
 
-    await service.advancedSearch({ dataCadastroFim: '2024-01-31' }, NivelUsuarioEnum.administrador);
+    await service.advancedSearch({ dataCadastroFim: '2024-01-31' }, admin);
 
     const chamada = usuarioModel.findAndCountAll.mock.calls[0][0];
     const fim = (chamada.where as Record<symbol, { dataCadastro: Record<symbol, Date> }>)[Op.and][0]
@@ -289,7 +394,7 @@ describe('SearchService', () => {
 
   it('lança BadRequestException para regimeTributario inválido sem consultar o banco', async () => {
     await expect(
-      service.advancedSearch({ regimeTributario: 'invalido' }, NivelUsuarioEnum.administrador),
+      service.advancedSearch({ regimeTributario: 'invalido' }, admin),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(empresaModel.findAll).not.toHaveBeenCalled();
     expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();
@@ -297,7 +402,7 @@ describe('SearchService', () => {
 
   it('lança BadRequestException para possuiEmpresa inválido sem consultar o banco', async () => {
     await expect(
-      service.advancedSearch({ possuiEmpresa: 'sim' }, NivelUsuarioEnum.administrador),
+      service.advancedSearch({ possuiEmpresa: 'sim' }, admin),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(empresaModel.findAll).not.toHaveBeenCalled();
     expect(usuarioModel.findAndCountAll).not.toHaveBeenCalled();

@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { InjectModel } from '@nestjs/sequelize';
 import { Op, WhereOptions } from 'sequelize';
 import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
-import type { UserRole } from '../../commons/decorators/current-role.decorator.js';
+import type { AuthenticatedUser } from '../../commons/decorators/current-role.decorator.js';
 import {
   classifyDocument,
   isValidCNPJ,
@@ -27,6 +27,18 @@ const EMPRESA_ATTRIBUTES = [
 ];
 const REGIMES_TRIBUTARIOS = ['mei', 'simples_nacional', 'lucro_presumido', 'lucro_real'] as const;
 
+const NOT_FOUND_RESULT = {
+  found: false as const,
+  message: 'Nenhum resultado encontrado para o documento informado.',
+};
+
+function requireUser(user: AuthenticatedUser | null): AuthenticatedUser {
+  if (!user) {
+    throw new ForbiddenException('Autenticação necessária.');
+  }
+  return user;
+}
+
 function escapeLikeValue(value: string): string {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
@@ -38,10 +50,9 @@ export class SearchService {
     @InjectModel(Empresa) private readonly empresaModel: typeof Empresa,
   ) {}
 
-  async searchByDocument(rawDoc: string | undefined, role: UserRole) {
-    if (role !== NivelUsuarioEnum.administrador) {
-      throw new ForbiddenException('Acesso restrito a administradores.');
-    }
+  async searchByDocument(rawDoc: string | undefined, currentUser: AuthenticatedUser | null) {
+    const user = requireUser(currentUser);
+    const isAdmin = user.role === NivelUsuarioEnum.administrador;
 
     if (typeof rawDoc !== 'string' || !rawDoc.trim()) {
       throw new BadRequestException('Informe um CPF ou CNPJ para busca.');
@@ -55,22 +66,19 @@ export class SearchService {
       }
 
       const usuario = await this.usuarioModel.findOne({
-        where: { cpfCnpj: onlyDigits(rawDoc) },
+        where: { cpfCnpj: onlyDigits(rawDoc), ...(isAdmin ? {} : { id: user.id }) },
         attributes: USUARIO_ATTRIBUTES,
         include: [{ model: Empresa, as: 'empresas', attributes: EMPRESA_ATTRIBUTES }],
       });
 
       if (!usuario) {
-        return {
-          found: false as const,
-          message: 'Nenhum resultado encontrado para o documento informado.',
-        };
+        return this.notFoundOrForbidden(isAdmin);
       }
 
       return {
         found: true as const,
         tipo: 'pessoa_fisica' as const,
-        data: presentUsuario(usuario.toJSON(), role),
+        data: presentUsuario(usuario.toJSON()),
       };
     }
 
@@ -80,7 +88,7 @@ export class SearchService {
       }
 
       const empresa = await this.empresaModel.findOne({
-        where: { cnpj: onlyDigits(rawDoc) },
+        where: { cnpj: onlyDigits(rawDoc), ...(isAdmin ? {} : { usuarioId: user.id }) },
         attributes: EMPRESA_ATTRIBUTES,
         include: [
           { model: Usuario, as: 'usuario', attributes: ['id', 'nome', 'email'], required: true },
@@ -88,16 +96,13 @@ export class SearchService {
       });
 
       if (!empresa) {
-        return {
-          found: false as const,
-          message: 'Nenhum resultado encontrado para o documento informado.',
-        };
+        return this.notFoundOrForbidden(isAdmin);
       }
 
       return {
         found: true as const,
         tipo: 'pessoa_juridica' as const,
-        data: presentEmpresa(empresa.toJSON(), role),
+        data: presentEmpresa(empresa.toJSON()),
       };
     }
 
@@ -106,14 +111,20 @@ export class SearchService {
     );
   }
 
-  async advancedSearch(query: AdvancedSearchQueryDto, role: UserRole) {
-    if (role !== NivelUsuarioEnum.administrador) {
-      throw new ForbiddenException('Acesso restrito a administradores.');
+  private notFoundOrForbidden(isAdmin: boolean) {
+    if (isAdmin) {
+      return NOT_FOUND_RESULT;
     }
+    throw new ForbiddenException('Acesso negado ao documento informado.');
+  }
+
+  async advancedSearch(query: AdvancedSearchQueryDto, currentUser: AuthenticatedUser | null) {
+    const user = requireUser(currentUser);
+    const scopeUserId = user.role === NivelUsuarioEnum.administrador ? undefined : user.id;
 
     const page = Math.max(1, Number.parseInt(query.page ?? '1', 10) || 1);
     const pageSize = Math.min(100, Math.max(1, Number.parseInt(query.pageSize ?? '20', 10) || 20));
-    const where = await this.buildWhere(query);
+    const where = await this.buildWhere(query, scopeUserId);
 
     const { count, rows } = await this.usuarioModel.findAndCountAll({
       where,
@@ -129,12 +140,19 @@ export class SearchService {
       total: count,
       page,
       pageSize,
-      results: rows.map((usuario) => presentUsuario(usuario.toJSON(), role)),
+      results: rows.map((usuario) => presentUsuario(usuario.toJSON())),
     };
   }
 
-  private async buildWhere(query: AdvancedSearchQueryDto): Promise<WhereOptions> {
+  private async buildWhere(
+    query: AdvancedSearchQueryDto,
+    scopeUserId?: number,
+  ): Promise<WhereOptions> {
     const and: WhereOptions[] = [];
+
+    if (scopeUserId !== undefined) {
+      and.push({ id: scopeUserId });
+    }
 
     if (typeof query.nome === 'string' && query.nome.trim()) {
       const nome = escapeLikeValue(query.nome.trim());
