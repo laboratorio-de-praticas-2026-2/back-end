@@ -8,6 +8,7 @@ import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+import { SearchModule } from './modules/search/search.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -28,6 +29,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         synchronize: false,
+        autoLoadModels: true,
       }),
     }),
 
@@ -41,6 +43,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     DisparoModule,
     MensagemModule,
     DashboardModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
