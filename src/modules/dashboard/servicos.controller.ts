@@ -1,4 +1,6 @@
 import { Controller } from '@nestjs/common';
 
-@Controller('servicos')
+//  Antes: @Controller('servicos')
+//  Altere para:
+@Controller('dashboard/servicos-resumo')
 export class ServicosController {}

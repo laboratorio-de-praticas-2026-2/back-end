@@ -23,9 +23,11 @@ export class ServicoController {
   }
 
   @Get()
-  findAll(@Query('apenasAtivos') apenasAtivos?: string) {
-    const soAtivos = apenasAtivos === 'true';
-    return this.servicoService.findAll(soAtivos);
+  findAll(@Query('incluirInativos') incluirInativos?: string) {
+    // Se passar ?incluirInativos=true, mostrarTodos fica true. 
+    // Se não passar nada, mostrarTodos fica false (comportamento padrão = só ativos).
+    const mostrarTodos = incluirInativos === 'true';
+    return this.servicoService.findAll(mostrarTodos);
   }
 
   @Get(':id')

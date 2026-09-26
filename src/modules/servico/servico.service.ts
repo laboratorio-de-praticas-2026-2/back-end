@@ -15,13 +15,21 @@ export class ServicoService {
     return this.servicoModel.create(createServicoDto as any);
   }
 
-  // Se apenasAtivos for true, traz somente serviços com ativo = true
-  async findAll(apenasAtivos = false): Promise<Servico[]> {
-    if (apenasAtivos) {
-      return this.servicoModel.findAll({ where: { ativo: true } });
-    }
+// src/modules/servico/servico.service.ts
+
+async findAll(incluirInativos = false): Promise<Servico[]> {
+  // Se o parâmetro for true (ex: vindo do CMS), busca todos os registros
+  if (incluirInativos) {
     return this.servicoModel.findAll();
   }
+
+  // Comportamento padrão (Vitrine): retorna apenas serviços com ativo = true
+  return this.servicoModel.findAll({
+    where: {
+      ativo: true,
+    },
+  });
+}
 
   async findOne(id: number): Promise<Servico> {
     const servico = await this.servicoModel.findByPk(id);
