@@ -1,0 +1,398 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─────────────────────────────  ENUMS  ─────────────────────────────
+
+enum RelatorioStatus {
+  pendente
+  gerado
+  falha
+}
+
+enum UsuarioNivel {
+  cliente
+  administrador
+}
+
+enum ObrigacaoTipo {
+  servico
+  empresa
+}
+
+enum ObrigacaoStatus {
+  pago
+  pendente
+}
+
+enum ParceiroTipo {
+  banco
+  cartorio
+  receita_federal
+  junta_comercial
+  sindicato
+}
+
+enum FaqCategoria {
+  documentacao
+  tributos
+  obrigacoes_acessorias
+  folha_pagamento
+  frequentes
+}
+
+enum TipoPagamento {
+  avista
+  parcelado
+}
+
+enum ParcelaStatus {
+  pago
+  atrasado
+  ativo
+}
+
+enum RegimeTributario {
+  mei
+  simples_nacional
+  lucro_presumido
+  lucro_real
+}
+
+enum SolicitacaoStatus {
+  recebido
+  aguardando_pagamento
+  aguardando_documento
+  em_andamento
+  concluido
+  cancelado
+}
+
+enum StatusValidacao {
+  pendente
+  aprovado
+  rejeitado
+}
+
+enum RelatorioCategoria {
+  relatorio_completo
+  performance_financeira
+  desempenho_operacional
+  performance_servicos
+  gestao_solicitacoes
+  gestao_documentos
+  gestao_empresas
+  base_clientes
+  analise_eficiencia
+  funil_conversao
+  gargalos_operacionais
+}
+
+enum CategoriaBlog {
+  Legislacao
+  ImpostoDeRenda
+  ObrigacoesAcessorias
+  FolhaDePagamento
+  SimplesNacional
+}
+
+// ────────────────────────────  MODELS  ────────────────────────────
+
+model Banner {
+  id        Int      @id @default(autoincrement())
+  urlImagem String?  @map("url_imagem") @db.VarChar(191)
+  descricao String?  @db.VarChar(191)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("banner")
+}
+
+model Blog {
+  id             Int            @id @default(autoincrement())
+  titulo         String?        @db.VarChar(150)
+  conteudo       String?        @db.Text
+  dataPublicacao DateTime?      @map("data_publicacao") @db.Date
+  urlImagem      String?        @map("url_imagem") @db.VarChar(191)
+  ativo          Boolean        @default(true)
+  olhoDoTexto    String?        @map("olho_do_texto") @db.VarChar(255)
+  categoria      CategoriaBlog?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@map("blog")
+}
+
+model Publicidade {
+  id        Int      @id @default(autoincrement())
+  titulo    String?  @db.VarChar(150)
+  conteudo  String?  @db.Text
+  urlImagem String?  @map("url_imagem") @db.VarChar(191)
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("publicidade")
+}
+
+model Faq {
+  id        Int           @id @default(autoincrement())
+  pergunta  String?       @db.Text
+  resposta  String?       @db.Text
+  status    Boolean       @default(true)
+  categoria FaqCategoria?
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@map("faq")
+}
+
+model Parceiro {
+  id           Int           @id @default(autoincrement())
+  nomeFantasia String?       @map("nome_fantasia") @db.VarChar(100)
+  tipo         ParceiroTipo?
+  cnpj         String?       @db.VarChar(20)
+  telefone     String?       @db.VarChar(20)
+  email        String?       @db.VarChar(100)
+  endereco     String?       @db.VarChar(255)
+  cidade       String?       @db.VarChar(100)
+  estado       String?       @db.VarChar(2)
+  latitude     Decimal?      @db.Decimal(10, 8)
+  longitude    Decimal?      @db.Decimal(11, 8)
+  site         String?       @db.VarChar(100)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+
+  @@map("parceiro")
+}
+
+model Usuario {
+  id           Int          @id @default(autoincrement())
+  nome         String       @db.VarChar(100)
+  email        String       @unique @db.VarChar(100)
+  senha        String       @db.VarChar(255)
+  nivel        UsuarioNivel @default(cliente)
+  cpfCnpj      String?      @unique @map("cpf_cnpj") @db.VarChar(20)
+  celular      String?      @db.VarChar(20)
+  dataCadastro DateTime     @default(now()) @map("data_cadastro")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  deletedAt    DateTime?    @map("deleted_at")
+
+  empresas     Empresa[]
+  solicitacoes Solicitacao[]
+  interacoes   InteracaoUsuario[]
+
+  @@map("usuario")
+}
+
+model Empresa {
+  id                 Int              @id @default(autoincrement())
+  usuarioId          Int              @map("usuario_id")
+  razaoSocial        String           @map("razao_social") @db.VarChar(150)
+  nomeFantasia       String?          @map("nome_fantasia") @db.VarChar(150)
+  cnpj               String           @unique @db.VarChar(20)
+  regimeTributario   RegimeTributario @default(simples_nacional) @map("regime_tributario")
+  inscricaoEstadual  String?          @map("inscricao_estadual") @db.VarChar(30)
+  inscricaoMunicipal String?          @map("inscricao_municipal") @db.VarChar(30)
+  dataAbertura       DateTime?        @map("data_abertura") @db.Date
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  deletedAt          DateTime?        @map("deleted_at")
+
+  usuario          Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  obrigacaoEmpresa ObrigacaoEmpresa[]
+  solicitacoes     Solicitacao[]
+
+  @@map("empresa")
+}
+
+model Servico {
+  id                Int       @id @default(autoincrement())
+  nome              String    @db.VarChar(100)
+  descricao         String?   @db.Text
+  valorBase         Decimal?  @map("valor_base") @db.Decimal(10, 2)
+  prazoEstimadoDias Int?      @map("prazo_estimado_dias")
+  ativo             Boolean   @default(true)
+  exigeEmpresa      Boolean   @default(false) @map("exige_empresa")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  obrigacaoServico ObrigacaoServico[]
+  solicitacoes     Solicitacao[]
+
+  @@map("servico")
+}
+
+model Solicitacao {
+  id                Int               @id @default(autoincrement())
+  usuarioId         Int               @map("usuario_id")
+  empresaId         Int?              @map("empresa_id")
+  servicoId         Int               @map("servico_id")
+  status            SolicitacaoStatus @default(recebido)
+  observacaoCliente String?           @map("observacao_cliente") @db.Text
+  observacaoAdmin   String?           @map("observacao_admin") @db.Text
+  dataSolicitacao   DateTime          @default(now()) @map("data_solicitacao")
+  dataConclusao     DateTime?         @map("data_conclusao")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  deletedAt         DateTime?         @map("deleted_at")
+
+  usuario          Usuario                @relation(fields: [usuarioId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  empresa          Empresa?               @relation(fields: [empresaId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  servico          Servico                @relation(fields: [servicoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  documentos       DocumentoSolicitacao[]
+  obrigacaoServico ObrigacaoServico[]
+
+  @@map("solicitacao")
+}
+
+model DocumentoSolicitacao {
+  id              Int             @id @default(autoincrement())
+  solicitacaoId   Int             @map("solicitacao_id")
+  nomeHash        String?         @map("nome_hash") @db.VarChar(191)
+  tipoDocumento   String?         @map("tipo_documento") @db.VarChar(100)
+  statusValidacao StatusValidacao @default(pendente) @map("status_validacao")
+  dataUpload      DateTime?       @map("data_upload")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  deletedAt       DateTime?       @map("deleted_at")
+
+  solicitacao Solicitacao @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("documento_solicitacao")
+}
+
+model Obrigacao {
+  id               Int             @id @default(autoincrement())
+  tipo             ObrigacaoTipo
+  descricao        String?         @db.Text
+  valor            Decimal         @db.Decimal(10, 2)
+  status           ObrigacaoStatus @default(pendente)
+  competencia      DateTime?       @db.Date
+  vencimento       DateTime?       @db.Date
+  naturezaCobranca String?         @map("natureza_cobranca") @db.VarChar(100)
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  deletedAt        DateTime?       @map("deleted_at")
+
+  obrigacaoServico ObrigacaoServico?
+  pagamento        Pagamento?
+  obrigacaoEmpresa ObrigacaoEmpresa?
+
+  @@map("obrigacao")
+}
+
+model ObrigacaoServico {
+  id            Int      @id @default(autoincrement())
+  idObrigacao   Int      @unique @map("id_obrigacao")
+  idServico     Int      @map("id_servico")
+  solicitacaoId Int      @map("id_solicitacao")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  obrigacao   Obrigacao   @relation(fields: [idObrigacao], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  servico     Servico     @relation(fields: [idServico], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  solicitacao Solicitacao @relation(fields: [solicitacaoId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([solicitacaoId])
+  @@map("obrigacao_servico")
+}
+
+model ObrigacaoEmpresa {
+  id          Int      @id @default(autoincrement())
+  idObrigacao Int      @unique @map("id_obrigacao")
+  idEmpresa   Int      @map("id_empresa")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  obrigacao Obrigacao @relation(fields: [idObrigacao], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  empresa   Empresa   @relation(fields: [idEmpresa], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("obrigacao_empresa")
+}
+
+model Pagamento {
+  id              Int           @id @default(autoincrement())
+  idObrigacao     Int           @unique @map("id_obrigacao")
+  valorTotal      Decimal       @map("valor_total") @db.Decimal(10, 2)
+  qtdParcelas     Int           @map("qtd_parcelas")
+  tipoPagamento   TipoPagamento @map("tipo_pagamento")
+  metodoPagamento String        @map("metodo_pagamento") @db.VarChar(100)
+  taxa            Decimal       @default(0.00) @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  obrigacao Obrigacao @relation(fields: [idObrigacao], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  parcelas  Parcela[]
+
+  @@map("pagamento")
+}
+
+model Parcela {
+  id            Int           @id @default(autoincrement())
+  idPagamento   Int           @map("id_pagamento")
+  valor         Decimal       @db.Decimal(10, 2)
+  numeroParcela Int           @map("numero_parcela")
+  status        ParcelaStatus @default(ativo)
+  vencimento    DateTime      @db.Date
+  dataPagamento DateTime?     @map("data_pagamento") @db.Date
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  deletedAt     DateTime?     @map("deleted_at")
+
+  pagamento Pagamento @relation(fields: [idPagamento], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([idPagamento, numeroParcela])
+  @@map("parcela")
+}
+
+model EmailEnviado {
+  id            Int      @id @default(autoincrement())
+  nomeUsuario   String   @map("nome_usuario") @db.VarChar(255)
+  emailUsuario  String   @map("email_usuario") @db.VarChar(255)
+  textoDigitado String   @map("texto_digitado") @db.Text
+  dataEnvio     DateTime @default(now()) @map("data_envio")
+  assunto       String   @db.VarChar(255)
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("emails_enviados")
+}
+
+model InteracaoUsuario {
+  id            Int           @id @default(autoincrement())
+  usuarioId     Int           @map("usuario_id")
+  categoriaBlog CategoriaBlog @map("categoria_blog")
+  dataInteracao DateTime      @map("data_interacao") @db.Date
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([usuarioId])
+  @@map("interacao_usuario")
+}
+
+model Relatorio {
+  id               Int                @id @default(autoincrement())
+  nome             String             @db.VarChar(150)
+  descricao        String?            @db.Text
+  categoria        RelatorioCategoria
+  status           RelatorioStatus    @default(pendente)
+  urlDocumentoHash String?            @map("url_documento_hash") @db.VarChar(255)
+  dataGeracao      DateTime?          @map("data_geracao") @db.Date
+  periodoInicio    DateTime?          @map("periodo_inicio") @db.Date
+  periodoFim       DateTime?          @map("periodo_fim") @db.Date
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  @@map("relatorio")
+}

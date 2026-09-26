@@ -111,7 +111,9 @@ describe('CloudinaryService', () => {
 
     const buffer = Buffer.from('PDF de teste');
 
-    await expect(service.uploadPdf(buffer)).rejects.toThrow('Falha no upload');
+    await expect(service.uploadPdf(buffer)).rejects.toThrow(
+      'Falha no upload',
+    );
   });
 
   it('deve excluir o PDF do Cloudinary', async () => {
@@ -138,5 +140,31 @@ describe('CloudinaryService', () => {
       },
       expect.any(Function),
     );
+  });
+
+  it('deve retornar erro quando a exclusão do PDF falhar', async () => {
+    destroyMock.mockImplementationOnce(
+      (_publicId, _options, callback) => {
+        callback(new Error('Falha ao excluir PDF'), undefined);
+      },
+    );
+
+    const configServiceMock = {
+      get: vi.fn((key: string) => {
+        const values: Record<string, string> = {
+          CLOUDINARY_CLOUD_NAME: 'test-cloud',
+          CLOUDINARY_API_KEY: 'test-key',
+          CLOUDINARY_API_SECRET: 'test-secret',
+        };
+
+        return values[key];
+      }),
+    };
+
+    const service = new CloudinaryService(configServiceMock as any);
+
+    await expect(
+      service.deletePdf('relatorios/relatorio-1'),
+    ).rejects.toThrow('Falha ao excluir PDF');
   });
 });

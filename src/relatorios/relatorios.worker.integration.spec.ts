@@ -10,6 +10,8 @@ describe('RelatoriosWorker - integração', () => {
       'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf',
     );
 
+    const relatorioUpdate = vi.fn().mockResolvedValue({});
+
     const relatoriosPdfService = {
       gerarPdf,
     };
@@ -18,9 +20,16 @@ describe('RelatoriosWorker - integração', () => {
       uploadPdf,
     };
 
+    const prisma = {
+      relatorio: {
+        update: relatorioUpdate,
+      },
+    };
+
     const worker = new RelatoriosWorker(
       relatoriosPdfService as any,
       cloudinaryService as any,
+      prisma as any,
     );
 
     const job = {
@@ -31,6 +40,11 @@ describe('RelatoriosWorker - integração', () => {
     } as any;
 
     await worker.process(job);
+
+    expect(relatorioUpdate).toHaveBeenCalledWith({
+      where: { id: 10 },
+      data: { status: 'pendente' },
+    });
 
     expect(gerarPdf).toHaveBeenCalledTimes(1);
 
@@ -44,10 +58,14 @@ describe('RelatoriosWorker - integração', () => {
       Buffer.from('%PDF-relatorio-teste'),
     );
 
-    const urlRetornada = await uploadPdf.mock.results[0].value;
-
-    expect(urlRetornada).toBe(
-      'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf',
-    );
+    expect(relatorioUpdate).toHaveBeenLastCalledWith({
+      where: { id: 10 },
+      data: {
+        status: 'gerado',
+        urlDocumentoHash:
+          'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf',
+        dataGeracao: expect.any(Date),
+      },
+    });
   });
 });

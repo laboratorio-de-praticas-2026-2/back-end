@@ -6,6 +6,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { CloudinaryModule } from './cloudinary/cloudinary.module.js';
 import { RelatoriosModule } from './relatorios/relatorios.module.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -31,6 +32,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: 'back-end',
     }),
+    PrismaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

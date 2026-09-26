@@ -7,6 +7,8 @@ describe('RelatoriosWorker', () => {
       .fn()
       .mockResolvedValue('https://res.cloudinary.com/teste/relatorio.pdf');
 
+    const update = vi.fn().mockResolvedValue({});
+
     const relatoriosPdfService = {
       gerarPdf,
     };
@@ -15,9 +17,16 @@ describe('RelatoriosWorker', () => {
       uploadPdf,
     };
 
+    const prisma = {
+      relatorio: {
+        update,
+      },
+    };
+
     const worker = new RelatoriosWorker(
       relatoriosPdfService as any,
       cloudinaryService as any,
+      prisma as any,
     );
 
     const job = {
@@ -36,19 +45,45 @@ describe('RelatoriosWorker', () => {
 
     expect(uploadPdf).toHaveBeenCalledTimes(1);
     expect(uploadPdf).toHaveBeenCalledWith(Buffer.from('%PDF-teste'));
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        status: 'pendente',
+      },
+    });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        status: 'gerado',
+        urlDocumentoHash:
+          'https://res.cloudinary.com/teste/relatorio.pdf',
+        dataGeracao: expect.any(Date),
+      },
+    });
   });
-    it('deve propagar o erro quando a geração do PDF falhar', async () => {
+
+  it('deve propagar o erro quando a geração do PDF falhar', async () => {
     const erro = new Error('Falha ao gerar PDF');
 
     const gerarPdf = vi.fn().mockRejectedValue(erro);
     const uploadPdf = vi.fn();
 
+    const update = vi.fn().mockResolvedValue({});
+
     const relatoriosPdfService = { gerarPdf };
     const cloudinaryService = { uploadPdf };
+    const prisma = {
+      relatorio: {
+        update,
+      },
+    };
 
     const worker = new RelatoriosWorker(
       relatoriosPdfService as any,
       cloudinaryService as any,
+      prisma as any,
     );
 
     const job = {
@@ -56,12 +91,22 @@ describe('RelatoriosWorker', () => {
       data: { relatorioId: 1 },
     } as any;
 
-    await expect(worker.process(job)).rejects.toThrow('Falha ao gerar PDF');
+    await expect(worker.process(job)).rejects.toThrow(
+      'Falha ao gerar PDF',
+    );
 
     expect(gerarPdf).toHaveBeenCalledTimes(1);
     expect(uploadPdf).not.toHaveBeenCalled();
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        status: 'falha',
+      },
+    });
   });
-    it('deve propagar o erro quando o upload para o Cloudinary falhar', async () => {
+
+  it('deve propagar o erro quando o upload para o Cloudinary falhar', async () => {
     const erro = new Error('Falha no upload');
 
     const gerarPdf = vi.fn().mockResolvedValue(
@@ -70,12 +115,20 @@ describe('RelatoriosWorker', () => {
 
     const uploadPdf = vi.fn().mockRejectedValue(erro);
 
+    const update = vi.fn().mockResolvedValue({});
+
     const relatoriosPdfService = { gerarPdf };
     const cloudinaryService = { uploadPdf };
+    const prisma = {
+      relatorio: {
+        update,
+      },
+    };
 
     const worker = new RelatoriosWorker(
       relatoriosPdfService as any,
       cloudinaryService as any,
+      prisma as any,
     );
 
     const job = {
@@ -83,11 +136,20 @@ describe('RelatoriosWorker', () => {
       data: { relatorioId: 1 },
     } as any;
 
-    await expect(worker.process(job)).rejects.toThrow('Falha no upload');
+    await expect(worker.process(job)).rejects.toThrow(
+      'Falha no upload',
+    );
 
     expect(gerarPdf).toHaveBeenCalledTimes(1);
     expect(uploadPdf).toHaveBeenCalledWith(
       Buffer.from('%PDF-teste'),
     );
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        status: 'falha',
+      },
+    });
   });
 });
