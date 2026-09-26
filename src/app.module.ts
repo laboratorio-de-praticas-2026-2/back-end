@@ -10,6 +10,9 @@ import { PrismaModule } from './prisma/prisma.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
+const redisHost = process.env.REDIS_HOST ?? 'localhost';
+const redisPort = Number(process.env.REDIS_PORT ?? 6379);
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -18,8 +21,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
     BullModule.forRoot({
       connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: Number(process.env.REDIS_PORT) || 6379,
+        host: redisHost,
+        port: Number.isFinite(redisPort) ? redisPort : 6379,
       },
     }),
 

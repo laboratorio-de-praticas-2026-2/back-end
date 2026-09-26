@@ -10,6 +10,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────  ENUMS  ─────────────────────────────
@@ -322,7 +323,6 @@ model ObrigacaoEmpresa {
 
 model Pagamento {
   id              Int           @id @default(autoincrement())
-  idObrigacao     Int           @unique @map("id_obrigacao")
   valorTotal      Decimal       @map("valor_total") @db.Decimal(10, 2)
   qtdParcelas     Int           @map("qtd_parcelas")
   tipoPagamento   TipoPagamento @map("tipo_pagamento")
