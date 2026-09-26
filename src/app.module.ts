@@ -9,6 +9,7 @@ import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { HeaderModule } from './modules/header/header.module.js';
+import { SearchModule } from './modules/search/search.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -33,6 +34,7 @@ const observeEnabled =
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         synchronize: false,
+        autoLoadModels: true,
       }),
     }),
 
@@ -52,6 +54,7 @@ const observeEnabled =
     MensagemModule,
     DashboardModule,
     HeaderModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
