@@ -1,4 +1,10 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put } from '@nestjs/common';
+import {Body, Controller,Get,HttpCode,HttpStatus,Post,Put,UseGuards,} from '@nestjs/common';
+
+import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { AuthGuard } from '../auth/guards/auth.guard.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
+
 import { ContatoService } from './contato.service.js';
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
 import { AuthService } from '../../commons/auth.service.js';
@@ -12,6 +18,8 @@ export class ContatoController {
   ) {}
 
   @Put()
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(NivelUsuarioEnum.administrador)
   putContact(@Body() updateContatoDto: UpdateContatoDto) {
     return this.contatoService.putContact(updateContatoDto);
   }
@@ -24,6 +32,6 @@ export class ContatoController {
   @Post('cadastro-pj')
   @HttpCode(HttpStatus.CREATED)
   async cadastrarPj(@Body() dto: CadastroPjDto) {
-    return await this.contatoService.cadastrarPj(dto); 
+    return await this.contatoService.cadastrarPj(dto);
   }
 }

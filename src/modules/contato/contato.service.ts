@@ -43,7 +43,7 @@ export class ContatoService {
   }
 
   private validarCpfCnpj(doc: string): boolean {
-    if (!doc) return true; 
+    if (!doc) return true;
     const numeros = doc.replace(/\D/g, '');
     return numeros.length === 11 || numeros.length === 14;
   }
