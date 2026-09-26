@@ -3,6 +3,10 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AuthService } from '../../commons/auth.service.js';
 import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
+import { ContatoController } from '../contato/contato.controller.js';
+import { ContatoService } from '../contato/contato.service.js';
+import { MensagemController } from '../contato/mensagem/mensagem.controller.js';
+import { MensagemService } from '../contato/mensagem/mensagem.service.js';
 import { AuthController } from './auth.controller.js';
 import { Roles } from './decorators/roles.decorator.js';
 import { AuthGuard } from './guards/auth.guard.js';
@@ -50,13 +54,20 @@ describe('Autenticação (HTTP)', () => {
     ];
 
     const modulo = await Test.createTestingModule({
-      controllers: [AuthController, RotasDeTesteController],
+      controllers: [
+        AuthController,
+        ContatoController,
+        MensagemController,
+        RotasDeTesteController,
+      ],
       providers: [
         AuthService,
         TokenDenylistService,
         SessaoService,
         AuthGuard,
         RolesGuard,
+        { provide: ContatoService, useValue: { putContact: vi.fn() } },
+        { provide: MensagemService, useValue: { listarHistorico: vi.fn() } },
         {
           provide: USUARIO_AUTH_REPOSITORY,
           useValue: {
@@ -155,6 +166,23 @@ describe('Autenticação (HTTP)', () => {
     it('200 para administrador', async () => {
       const token = await tokenDe('admin@teste.com');
       await request(app.getHttpServer()).get('/teste/admin').set('Authorization', `Bearer ${token}`).expect(200);
+    });
+
+    it('403 para cliente em PUT /contato', async () => {
+      const token = await tokenDe('ana@teste.com');
+      await request(app.getHttpServer())
+        .put('/contato')
+        .set('Authorization', `Bearer ${token}`)
+        .send({})
+        .expect(403);
+    });
+
+    it('403 para cliente em GET /mensagem', async () => {
+      const token = await tokenDe('ana@teste.com');
+      await request(app.getHttpServer())
+        .get('/mensagem')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(403);
     });
 
     it('401 sem token', async () => {
