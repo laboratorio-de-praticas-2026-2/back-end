@@ -1,11 +1,20 @@
 import { defineConfig } from 'vitest/config';
-import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: {
+    tsconfigPaths: true,
+  },
   test: {
+    include: ['test/**/*.e2e-spec.ts'],
     globals: true,
-    root: './',
-    include: ['**/*.e2e-spec.ts'],
+    environment: 'node',
+    env: {
+      DB_DIALECT: 'mysql', // Ajuste para 'postgres', 'sqlite', etc., conforme o banco do seu projeto
+      DB_HOST: 'localhost',
+      DB_PORT: '3306',
+      DB_USER: 'root',
+      DB_PASS: 'root',
+      DB_NAME: 'rotuscan_test',
+    },
   },
 });

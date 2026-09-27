@@ -13,7 +13,6 @@ import { ClienteModule } from './modules/cliente/cliente.module.js';
 import { AdministracaoModule } from './modules/administracao/administracao.module.js';
 import { Usuario } from './models/usuario.model.js';
 
-
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({

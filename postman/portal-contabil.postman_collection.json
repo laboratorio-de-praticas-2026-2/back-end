@@ -1,0 +1,674 @@
+{
+  "info": {
+    "name": "Portal Contabil - Rotas existentes",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Testes locais das 7 rotas implementadas. Executar na ordem. Contato restaurado ao final do fluxo. Mensagem e cliente de teste permanecem no historico/banco (nao existem rotas de exclusao). Disparos sao simulados."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3333"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Disponibilidade",
+      "item": [
+        {
+          "name": "API disponivel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Saudacao\", () => pm.expect(pm.response.text()).to.eql(\"Hello World!\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Contato e mensagens",
+      "item": [
+        {
+          "name": "Consultar e guardar contato",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Contato possui email\", () => pm.expect(pm.response.json().email).to.be.a(\"string\"));",
+                  "pm.collectionVariables.set(\"contatoOriginal\", JSON.stringify(pm.response.json()));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/contato"
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar email de contato",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Email atualizado\", () => pm.expect(pm.response.json().email).to.eql(\"postman@example.com\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contato",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"postman@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar contato atualizado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Email persistiu em memoria\", () => pm.expect(pm.response.json().email).to.eql(\"postman@example.com\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/contato"
+          },
+          "response": []
+        },
+        {
+          "name": "Simular disparo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Usa destinatario configurado\", () => { const r=pm.response.json(); pm.expect(r.destinatario).to.eql(\"postman@example.com\"); pm.expect(r.status).to.eql(\"simulado\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/disparo"
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar email invalido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contato",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"invalido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar campo desconhecido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contato",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campoInexistente\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar mensagem",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Mensagem e disparo simulado\", () => { const r=pm.response.json(); pm.expect(r.id).to.be.a(\"string\"); pm.expect(r.disparo.destinatario).to.eql(\"postman@example.com\"); pm.expect(r.disparo.status).to.eql(\"simulado\"); pm.collectionVariables.set(\"mensagemId\",r.id); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/mensagem",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primeiroNome\": \"Teste\",\n  \"ultimoNome\": \"Postman\",\n  \"email\": \"teste@example.com\",\n  \"telefone\": \"11999999999\",\n  \"assunto\": \"Impostos\",\n  \"mensagem\": \"Mensagem de teste local via Postman.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar historico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Historico contem mensagem criada\", () => pm.expect(pm.response.json().some(m=>m.id===pm.collectionVariables.get(\"mensagemId\"))).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/mensagem"
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar mensagem incompleta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/mensagem",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar assunto invalido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/mensagem",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primeiroNome\": \"Teste\",\n  \"ultimoNome\": \"Postman\",\n  \"email\": \"teste@example.com\",\n  \"telefone\": \"11999999999\",\n  \"assunto\": \"invalido\",\n  \"mensagem\": \"Mensagem de teste local via Postman.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar tipo incorreto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/mensagem",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"primeiroNome\": 123,\n  \"ultimoNome\": \"Postman\",\n  \"email\": \"teste@example.com\",\n  \"telefone\": \"11999999999\",\n  \"assunto\": \"Impostos\",\n  \"mensagem\": \"Mensagem de teste local via Postman.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Restaurar contato original",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Contato restaurado\", () => pm.expect(pm.response.json()).to.deep.eql(JSON.parse(pm.collectionVariables.get(\"contatoOriginal\"))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contato",
+            "body": {
+              "mode": "raw",
+              "raw": "{{contatoOriginal}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Cadastro de clientes (banco local)",
+      "item": [
+        {
+          "name": "Criar cliente de teste",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const digits = Array.from({length: 9}, () => Math.floor(Math.random()*10));",
+                  "function check(ds) { const rem = ds.reduce((sum, d, i) => sum+d*(ds.length+1-i),0)%11; return rem<2?0:11-rem; }",
+                  "digits.push(check(digits)); digits.push(check(digits));",
+                  "pm.collectionVariables.set(\"clienteCpf\",digits.slice(0,3).join(\"\")+\".\"+digits.slice(3,6).join(\"\")+\".\"+digits.slice(6,9).join(\"\")+\"-\"+digits.slice(9).join(\"\"));",
+                  "pm.collectionVariables.set(\"clienteEmail\",\"postman.\"+pm.variables.replaceIn(\"{{$guid}}\")+\"@example.com\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Cliente criado sem expor senha\", () => { const r=pm.response.json(); pm.expect(r.id).to.be.a(\"number\"); pm.expect(r.email).to.eql(pm.collectionVariables.get(\"clienteEmail\")); pm.expect(r).not.to.have.property(\"senha\"); pm.collectionVariables.set(\"clienteId\",r.id); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Teste Postman\",\n  \"email\": \"{{clienteEmail}}\",\n  \"senha\": \"TestePostman123!\",\n  \"cpfCnpj\": \"{{clienteCpf}}\",\n  \"celular\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar email duplicado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Teste Postman\",\n  \"email\": \"{{clienteEmail}}\",\n  \"senha\": \"TestePostman123!\",\n  \"cpfCnpj\": \"{{clienteCpf}}\",\n  \"celular\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar CPF duplicado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Teste Postman\",\n  \"email\": \"outro.{{$guid}}@example.com\",\n  \"senha\": \"TestePostman123!\",\n  \"cpfCnpj\": \"{{clienteCpf}}\",\n  \"celular\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar cadastro vazio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar CPF invalido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Teste Postman\",\n  \"email\": \"invalido@example.com\",\n  \"senha\": \"TestePostman123!\",\n  \"cpfCnpj\": \"11111111111\",\n  \"celular\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar senha curta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Teste Postman\",\n  \"email\": \"{{clienteEmail}}\",\n  \"senha\": \"123\",\n  \"cpfCnpj\": \"{{clienteCpf}}\",\n  \"celular\": \"11999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rejeitar nivel enviado pelo cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  ""
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Cliente Teste Postman\",\n  \"email\": \"{{clienteEmail}}\",\n  \"senha\": \"TestePostman123!\",\n  \"cpfCnpj\": \"{{clienteCpf}}\",\n  \"celular\": \"11999999999\",\n  \"nivel\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
