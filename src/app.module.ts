@@ -8,6 +8,7 @@ import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+import { NotificacaoModule } from './modules/notificacao/notificacao.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -32,8 +33,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
 
     ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
+      appKey: '3W&I9tN&edMq%TYl',
+      appSecret: 'M^kK99NEDWuhGyU0!M4NqmwcAhLgvEO32eDK40WCJ9AbO',
       serviceId: 'back-end',
     }),
 
@@ -41,7 +42,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     DisparoModule,
     MensagemModule,
     DashboardModule,
+    NotificacaoModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })
