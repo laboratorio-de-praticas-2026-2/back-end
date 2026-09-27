@@ -126,7 +126,7 @@ export default function Carrossel() {
         {slides.map((_, index) => (
           <button
             key={index}
-            onClick={() => setCurrent(index)}
+            onClick={() git=> setCurrent(index)}
             aria-label={`Ir para o slide ${index + 1}`}
             className={`w-3 h-3 rounded-full transition-all duration-300 ${
               index === current ? "bg-[#0A324E] w-5" : "bg-white/70 hover:bg-white"
