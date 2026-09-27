@@ -66,10 +66,3 @@ export function isValidDocument(value: string): boolean {
   if (type === 'cnpj') return isValidCNPJ(value);
   return false;
 }
-
-export function maskDocument(value: string): string {
-  const digits = onlyDigits(value);
-  const visibleCount = Math.min(3, digits.length);
-  const hiddenLength = digits.length - visibleCount;
-  return '*'.repeat(hiddenLength) + digits.slice(digits.length - visibleCount);
-}
