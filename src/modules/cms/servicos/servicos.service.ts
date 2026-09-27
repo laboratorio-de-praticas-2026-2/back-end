@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException, } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 
-import { Servico } from './servico.model';
+import { Servico } from './servico.model.js';
 import { CreateServicoDto } from './dto/create-servico.dto.js';
-import { UpdateServicoDto } from './dto/update-servico.dto';
-import { UpdateStatusServicoDto } from './dto/update-status-servico.dto';
+import { UpdateServicoDto } from './dto/update-servico.dto.js';
+import { UpdateStatusServicoDto } from './dto/update-status-servico.dto.js';
 
 @Injectable()
 export class ServicosService {

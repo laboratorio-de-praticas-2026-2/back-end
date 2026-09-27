@@ -9,18 +9,30 @@ import {
   Default,
 } from 'sequelize-typescript';
 
+import type {
+  CreationOptional,
+  InferAttributes,
+  InferCreationAttributes,
+} from 'sequelize';
+
 @Table({
   tableName: 'servico', // Nome EXATO da tabela existente no MySQL
   timestamps: false,    // A tabela não possui createdAt e updatedAt
 })
-export class Servico extends Model<Servico> {
+export class Servico extends Model<
+  InferAttributes<Servico>,
+  InferCreationAttributes<Servico>
+> {
 
   // Identificador do serviço.
   // FRONT: útil para buscar, editar, pausar ou remover um serviço específico.
+  //
+  // CreationOptional informa ao Sequelize/TypeScript que o ID
+  // não precisa ser enviado no cadastro, pois é gerado pelo banco.
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)
-  declare id: number;
+  declare id: CreationOptional<number>;
 
   // Nome apresentado na Vitrine de Serviços.
   // Ex.: "Declaração de IRPF"
@@ -59,10 +71,13 @@ export class Servico extends Model<Servico> {
   // false = pausado / não deve aparecer na Vitrine
   //
   // Esse campo será importante no CMS para ativar/pausar serviços.
+  //
+  // CreationOptional permite que o cadastro não envie esse campo,
+  // utilizando o valor padrão true definido abaixo.
   @AllowNull(false)
   @Default(true)
   @Column(DataType.BOOLEAN)
-  declare ativo: boolean;
+  declare ativo: CreationOptional<boolean>;
 }
 
 

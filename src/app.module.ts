@@ -9,6 +9,7 @@ import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { ServicosModule } from './modules/cms/servicos/servicos.module.js';
+import { PublicidadeModule } from './modules/cms/publicidade/publicidade.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -28,6 +29,14 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
+        // Carrega automaticamente os Models registrados
+        // através de SequelizeModule.forFeature().
+        autoLoadModels: true,
+
+        // IMPORTANTE:
+        // O backend não altera automaticamente o schema.
+        // Alterações estruturais continuam sendo responsabilidade
+        // das migrations do repositório database.
         synchronize: false,
       }),
     }),
@@ -43,6 +52,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     MensagemModule,
     DashboardModule,
     ServicosModule,
+    PublicidadeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

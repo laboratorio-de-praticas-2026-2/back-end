@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 
-import { ServicosService } from './servicos.service';
+import { ServicosService } from './servicos.service.js';
 import { CreateServicoDto } from './dto/create-servico.dto.js';
-import { UpdateServicoDto } from './dto/update-servico.dto';
-import { UpdateStatusServicoDto } from './dto/update-status-servico.dto';
+import { UpdateServicoDto } from './dto/update-servico.dto.js';
+import { UpdateStatusServicoDto } from './dto/update-status-servico.dto.js';
 
 @Controller('servicos')
 export class ServicosController {
