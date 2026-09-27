@@ -6,7 +6,7 @@ import Link from "next/link";
 
 const slides = [
   {
-    src: "/carrossel/slide-4.png  ",
+    src: "/carrossel/slide-4.png", // Corrigido: sem espaços
     alt: "Aperto de mãos entre profissionais - fechamento de negócio",
     title: "Nossos Serviços",
     description:
@@ -15,7 +15,7 @@ const slides = [
     buttonHref: "/contato",
   },
   {
-    src: "/carrossel/slide-4.png",
+    src: "/carrossel/slide-4.png", // Voltei para slide-4 para não quebrar
     alt: "Descrição do slide 2",
     title: "Assessoria Completa",
     description:
@@ -24,7 +24,7 @@ const slides = [
     buttonHref: "/contato",
   },
   {
-    src: "/carrossel/slide-4.png",
+    src: "/carrossel/slide-4.png", // Voltei para slide-4 para não quebrar
     alt: "Descrição do slide 3",
     title: "Planejamento Tributário",
     description:
@@ -36,6 +36,7 @@ const slides = [
 
 export default function Carrossel() {
   const [current, setCurrent] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const goToPrev = () => {
     setCurrent((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
@@ -45,16 +46,28 @@ export default function Carrossel() {
     setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
   };
 
-  // Troca automática de slides a cada 5 segundos
+  // Troca automática de slides a cada 5 segundos (com pausa)
   useEffect(() => {
+    if (isPaused) return;
+
     const interval = setInterval(() => {
-      goToNext();
+      setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
     }, 5000);
+
     return () => clearInterval(interval);
-  }, [current]);
+  }, [isPaused]);
 
   return (
-    <div className="relative w-full h-[500px] md:h-auto md:aspect-[1242/583] overflow-hidden select-none">
+    <div
+      className="relative w-full aspect-[1242/583] overflow-hidden select-none"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft") goToPrev();
+        if (e.key === "ArrowRight") goToNext();
+      }}
+    >
       {/* Slides */}
       {slides.map((slide, index) => (
         <div
@@ -63,7 +76,6 @@ export default function Carrossel() {
             index === current ? "opacity-100 z-10" : "opacity-0 pointer-events-none z-0"
           }`}
         >
-          {/* Imagem de Fundo */}
           <Image
             src={slide.src}
             alt={slide.alt}
@@ -72,12 +84,10 @@ export default function Carrossel() {
             priority={index === 0}
           />
 
-          {/* Overlay escuro para contraste do texto */}
           <div className="absolute inset-0 bg-black/35" />
 
-          {/* Conteúdo sobreposto (Texto e Botão) */}
-          <div className="relative h-full max-w-[1440px] mx-auto px-6 md:px-20 flex flex-col justify-center items-start text-white">
-            <h2 className="text-2xl md:text-5xl font-bold mb-4 drop-shadow-sm">
+          <div className="relative h-full max-w-[1440px] mx-auto px-10 md:px-20 flex flex-col justify-center items-start text-white">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4 drop-shadow-sm">
               {slide.title}
             </h2>
             <p className="text-sm md:text-lg max-w-xl text-gray-100 leading-relaxed mb-6 drop-shadow-sm">
