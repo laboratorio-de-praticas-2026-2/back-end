@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { AgendamentoService } from './agendamento.service.js';
 import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
 import { CriarAgendamentoDto } from './dto/criar-agendamento.dto.js';
-import { pseudoRandomBytes } from 'crypto';
+import { ConsultarHorariosDisponiveisDto } from './dto/consultar-horarios-disponiveis.dto.js';
 
 @Controller('agendamento')
 export class AgendamentoController {
@@ -24,5 +24,14 @@ export class AgendamentoController {
   @HttpCode(HttpStatus.CREATED)
   criarAgendamento(@Body() body: CriarAgendamentoDto) {
     return this.agendamentoService.criarAgendamento(body);
+  }
+
+  @Get('horarios-disponiveis')
+  @HttpCode(HttpStatus.OK)
+  horariosDisponiveis(@Query() query: ConsultarHorariosDisponiveisDto) {
+    return this.agendamentoService.listarHorariosDisponiveis(
+      query.data,
+      Number(query.tipo_atendimento_id),
+    );
   }
 }
