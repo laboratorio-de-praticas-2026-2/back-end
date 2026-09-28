@@ -2,13 +2,11 @@ import { Injectable, ConflictException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/sequelize';
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
 import { CadastroPjDto } from './dto/cadastro-pj.dto.js';
+import * as crypto from 'crypto';
 
 // Modelos do Sequelize
 import { Usuario } from './entities/usuario.entity.js';
 import { Empresa } from './entities/empresa.entity.js';
-
-// Importa a função de hash scrypt padrão da PR #52 (ajusta o caminho relativo se necessário)
-import { hashPassword } from '../../commons/utils/crypto.js';
 
 @Injectable()
 export class ContatoService {
@@ -24,7 +22,7 @@ export class ContatoService {
     telefone: '11 1111-1111',
     email: 'portalcontabil@gmail.com.br',
     endereco: 'R. Tamekishi Takano, 713 - Centro, Registro - SP, 11900-000',
-    horarioAtendimento: 'Segunda a Sexta, das 08:00 ás 11:30, 13:00 ás 18:00',
+    horarioAtendimento: 'Segunda a Sexta, das 08:00 às 11:30, 13:00 às 18:00',
   };
 
   async putContact(updateContatoDto: UpdateContatoDto) {
@@ -45,8 +43,10 @@ export class ContatoService {
   }
 
   private validarCpfCnpj(doc: string): boolean {
-    if (!doc) return true; 
+    if (!doc) return true;
+
     const numeros = doc.replace(/\D/g, '');
+
     return numeros.length === 11 || numeros.length === 14;
   }
 
@@ -56,7 +56,9 @@ export class ContatoService {
 
   async cadastrarPj(dto: CadastroPjDto) {
     if (!dto.nome || !dto.email || !dto.senha || !dto.razaoSocial || !dto.cnpj) {
-      throw new BadRequestException('Preencha os campos obrigatórios (nome, e-mail, senha, razão social e CNPJ).');
+      throw new BadRequestException(
+        'Preencha os campos obrigatórios (nome, e-mail, senha, razão social e CNPJ).',
+      );
     }
 
     if (!this.validarEmail(dto.email)) {
@@ -68,32 +70,46 @@ export class ContatoService {
     }
 
     if (dto.cpf_cnpj && !this.validarCpfCnpj(dto.cpf_cnpj)) {
-      throw new BadRequestException('Formato de CPF/CNPJ do responsável inválido.');
+      throw new BadRequestException(
+        'Formato de CPF/CNPJ do responsável inválido.',
+      );
     }
 
     const cnpjLimpo = dto.cnpj.replace(/\D/g, '');
-    const cpfCnpjRespLimpo = dto.cpf_cnpj ? dto.cpf_cnpj.replace(/\D/g, '') : null;
-    const emailNormalizado = dto.email.toLowerCase().trim();
+    const cpfCnpjRespLimpo = dto.cpf_cnpj
+      ? dto.cpf_cnpj.replace(/\D/g, '')
+      : null;
 
     // 1. Busca no Banco de Dados via Sequelize
-    const emailExiste = await this.usuarioModel.findOne({ where: { email: emailNormalizado } });
+    const emailExiste = await this.usuarioModel.findOne({
+      where: { email: dto.email },
+    });
+
     if (emailExiste) {
       throw new ConflictException('E-mail já cadastrado.');
     }
 
-    const cnpjExiste = await this.empresaModel.findOne({ where: { cnpj: cnpjLimpo } });
+    const cnpjExiste = await this.empresaModel.findOne({
+      where: { cnpj: cnpjLimpo },
+    });
+
     if (cnpjExiste) {
       throw new ConflictException('CNPJ já cadastrado.');
     }
 
-    // 2. Hash seguro de senha usando o padrão scrypt da PR #52
-    const senhaHash = await hashPassword(dto.senha);
+    // 2. Hash seguro de senha usando o módulo nativo crypto (pbkdf2)
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto
+      .pbkdf2Sync(dto.senha, salt, 1000, 64, 'sha512')
+      .toString('hex');
 
-    // 3. Persistência real no Banco de Dados via Sequelize na tabela unificada 'usuario'
+    const senhaHash = `${salt}:${hash}`;
+
+    // 3. Persistência real no Banco de Dados via Sequelize
     const novoUsuario = await this.usuarioModel.create({
       nome: dto.nome,
-      email: emailNormalizado,
-      senha: senhaHash, // Armazenado no padrão scrypt compatível com a autenticação
+      email: dto.email,
+      senha: senhaHash,
       nivel: 'cliente',
       cpfCnpj: cpfCnpjRespLimpo,
       celular: dto.celular,
@@ -111,6 +127,7 @@ export class ContatoService {
     });
 
     const usuarioPlain = novoUsuario.get({ plain: true });
+
     delete usuarioPlain.senha;
 
     return {
