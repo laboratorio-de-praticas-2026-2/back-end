@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { CloudinaryModule } from './cloudinary/cloudinary.module.js';
-import { RelatoriosModule } from './relatorios/relatorios.module.js';
+import { RelatoriosModule } from './modules/relatorios/relatorios.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
@@ -21,9 +21,9 @@ const redisPort = Number(process.env.REDIS_PORT ?? 6379);
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true,
-    }),
-
+  isGlobal: true,
+  envFilePath: '.env',
+}),
     BullModule.forRoot({
       connection: {
         host: redisHost,

@@ -213,8 +213,8 @@ describe('RelatoriosController', () => {
     const resposta = await controller.excluirRelatorio('1');
 
     expect(deletePdf).toHaveBeenCalledWith(
-      'relatorios/relatorio',
-    );
+  'relatorios/relatorio.pdf',
+);
 
     expect(deleteRelatorio).toHaveBeenCalledWith({
       where: { id: 1 },

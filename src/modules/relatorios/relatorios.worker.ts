@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { RelatoriosPdfService } from './relatorios.pdf.service.js';
-import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
 @Processor('relatorios')

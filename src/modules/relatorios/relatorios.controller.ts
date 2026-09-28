@@ -8,9 +8,10 @@ import {
   Post,
   NotFoundException,
 } from '@nestjs/common';
+
 import { RelatoriosProducer } from './relatorios.producer.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
 
 @Controller('relatorios')
 export class RelatoriosController {
@@ -126,8 +127,7 @@ export class RelatoriosController {
         const publicId = partes
           .slice(uploadIndex + 1)
           .filter((parte) => !/^v\d+$/.test(parte))
-          .join('/')
-          .replace(/\.pdf$/, '');
+          .join('/');
 
         await this.cloudinaryService.deletePdf(publicId);
       }

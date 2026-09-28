@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service.js';
-import { RelatoriosProducer } from './relatorios/relatorios.producer.js';
+import { RelatoriosProducer } from './modules/relatorios/relatorios.producer.js';
 
 @Controller()
 export class AppController {
