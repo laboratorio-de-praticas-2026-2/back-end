@@ -12,6 +12,16 @@ import { AgendamentoModule } from './modules/agendamento/agendamento.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
+const observeImports = process.env.OBSERVE_ENABLED === 'true'
+  ? [
+    ObserveModule.forRoot({
+      appKey: 'YOUR_APP_KEY',
+      appSecret: 'YOUR_APP_SECRET',
+      serviceId: 'back-end',
+    }),
+  ]
+  : [];
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -32,11 +42,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       }),
     }),
 
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'back-end',
-    }),
+    ...observeImports,
 
     ContatoModule,
     DisparoModule,
