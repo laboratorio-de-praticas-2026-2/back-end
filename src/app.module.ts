@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
+import { ChatModule } from './modules/chat/chat.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -22,6 +23,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         dialect: configService.get<string>('DB_DIALECT') as 'mysql',
+        autoLoadModels: true,
         host: configService.get<string>('DB_HOST'),
         port: Number(configService.get<string>('DB_PORT')),
         username: configService.get<string>('DB_USER'),
@@ -40,6 +42,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ContatoModule,
     DisparoModule,
     MensagemModule,
+    ChatModule,
     DashboardModule,
   ],
   controllers: [AppController],
