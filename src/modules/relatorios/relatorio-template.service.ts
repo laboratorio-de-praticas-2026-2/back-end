@@ -11,7 +11,7 @@ export class RelatorioTemplateService {
           `<tr><td>${this.escapeHtml(item.descricao)}</td><td>${this.escapeHtml(item.status ?? '-')}</td><td>R$ ${item.valor.toFixed(2)}</td></tr>`,
       )
       .join('');
-    const periodo = dto.periodoInicio && dto.periodoFim ? `${dto.periodoInicio} a ${dto.periodoFim}` : 'Não informado';
+    const periodo = dto.periodoInicio || dto.periodoFim ? [dto.periodoInicio, dto.periodoFim].filter(Boolean).join(' a ') : 'Não informado';
 
     return `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${this.escapeHtml(dto.titulo)}</title><style>
       @page { size: A4; margin: 24mm 18mm; }
