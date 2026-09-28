@@ -29,11 +29,11 @@ export class Blog extends Model {
   })
   declare conteudo: string;
 
-  @Column({
-    type: DataType.DATEONLY,
+@Column({
+    type: DataType.DATE,
     allowNull: false,
   })
-  declare data_publicacao: string;
+  declare data_publicacao: Date;
 
   @Column(DataType.STRING)
   declare url_imagem: string;
