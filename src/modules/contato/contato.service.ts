@@ -95,10 +95,10 @@ export class ContatoService {
       throw new ConflictException('CNPJ já cadastrado.');
     }
 
-    // 1. Hash padrão alinhado com a autenticação (#52)
+    // 1. Hash padrão alinhado com a autenticação (#52)[cite: 4]
     const senhaHash = await hashPassword(dto.senha);
 
-    // 2. Transação atômica do Sequelize (garante que se falhar um, nenhum é gravado)
+    // 2. Transação atômica do Sequelize (garante que se falhar um, nenhum é gravado)[cite: 4]
     const resultado = await this.sequelize.transaction(async (t) => {
       const novoUsuario = await this.usuarioModel.create(
         {
