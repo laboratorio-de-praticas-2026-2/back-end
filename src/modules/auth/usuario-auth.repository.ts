@@ -20,12 +20,11 @@ export interface UsuarioAuthRepository {
 export const USUARIO_AUTH_REPOSITORY = 'USUARIO_AUTH_REPOSITORY';
 
 /**
- * ATENÇÃO: nomes de tabela/colunas abaixo são uma SUPOSIÇÃO enquanto a
- * estrutura definitiva de `Usuario` (issues de Cadastro PF/PJ) não existe.
- * Ajuste só este objeto quando o schema for definido.
+ * Estrutura oficial de database/prisma/schema.prisma, compartilhada com
+ * o model Usuario usado pelo cadastro PF. A senha armazena o hash bcrypt.
  */
 const USUARIOS = {
-  tabela: 'usuarios',
+  tabela: 'usuario',
   id: 'id',
   nome: 'nome',
   email: 'email',
