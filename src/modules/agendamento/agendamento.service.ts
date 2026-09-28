@@ -1,5 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
 import { CriarAgendamentoDto } from './dto/criar-agendamento.dto.js';
 
@@ -28,8 +32,8 @@ export class Agendamento {
 }
 
 interface HorarioFuncionamento {
-  diaSemana: number; // 0 = domingo ... 6 = sábado
-  horarios: string[]; // horários de atendimento naquele dia, ex: '09:00'
+  diaSemana: number;
+  horarios: string[];
 }
 
 export interface HorariosDisponiveisResponse {
@@ -88,13 +92,23 @@ export class AgendamentoService {
 
   private proximoAgendamentoId = 101;
 
-  // TODO: substituir por consulta ao banco de dados quando a tabela
-  // de horários de funcionamento estiver disponível.
   private horariosFuncionamento: HorarioFuncionamento[] = [
-    { diaSemana: 1, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'] },
-    { diaSemana: 2, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'] },
-    { diaSemana: 3, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'] },
-    { diaSemana: 4, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'] },
+    {
+      diaSemana: 1,
+      horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'],
+    },
+    {
+      diaSemana: 2,
+      horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'],
+    },
+    {
+      diaSemana: 3,
+      horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'],
+    },
+    {
+      diaSemana: 4,
+      horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'],
+    },
     { diaSemana: 5, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00'] },
   ];
 
@@ -118,12 +132,93 @@ export class AgendamentoService {
     };
   }
 
-  criarAgendamento(dto: CriarAgendamentoDto) {
+  listarAgendamentos(filtros: {
+    data_inicio?: string;
+    data_fim?: string;
+    status?: string;
+    tipo_atendimento_id?: number;
+  }) {
+    let resultado = [...this.agendamentos];
+
+    if (filtros.data_inicio) {
+      resultado = resultado.filter(
+        (agendamento) => agendamento.data_agendamento >= filtros.data_inicio!,
+      );
+    }
+
+    if (filtros.data_fim) {
+      resultado = resultado.filter(
+        (agendamento) => agendamento.data_agendamento <= filtros.data_fim!,
+      );
+    }
+
+    if (filtros.status) {
+      resultado = resultado.filter(
+        (agendamento) => agendamento.status === filtros.status,
+      );
+    }
+
+    if (filtros.tipo_atendimento_id) {
+      resultado = resultado.filter(
+        (agendamento) =>
+          agendamento.tipo_atendimento_id === filtros.tipo_atendimento_id,
+      );
+    }
+
+    return {
+      total: resultado.length,
+      agendamentos: resultado.map((agendamento) => {
+        const tipoAtendimento = this.tiposAtendimento.find(
+          (tipo) => tipo.id === agendamento.tipo_atendimento_id,
+        );
+
+        return {
+          id: agendamento.id,
+          protocolo: agendamento.protocolo,
+          cliente: agendamento.cliente,
+          tipo_atendimento: tipoAtendimento?.nome,
+          data_agendamento: agendamento.data_agendamento,
+          horario: agendamento.horario,
+          status: agendamento.status,
+        };
+      }),
+    };
+  }
+
+  buscarAgendamento(id: number) {
+    const agendamento = this.agendamentos.find(
+      (agendamentoAtual) => agendamentoAtual.id === id,
+    );
+
+    if (!agendamento) {
+      throw new NotFoundException('Agendamento não encontrado.');
+    }
 
     const tipoAtendimento = this.tiposAtendimento.find(
-      (tipo) =>
-        tipo.id === dto.tipo_atendimento_id &&
-        tipo.ativo,
+      (tipo) => tipo.id === agendamento.tipo_atendimento_id,
+    );
+
+    return {
+      id: agendamento.id,
+      protocolo: agendamento.protocolo,
+      status: agendamento.status,
+      cliente: agendamento.cliente,
+      tipo_atendimento: tipoAtendimento
+        ? {
+          id: tipoAtendimento.id,
+          nome: tipoAtendimento.nome,
+          descricao: tipoAtendimento.descricao,
+        }
+        : null,
+      data_agendamento: agendamento.data_agendamento,
+      horario: agendamento.horario,
+      observacao: agendamento.observacao,
+    };
+  }
+
+  criarAgendamento(dto: CriarAgendamentoDto) {
+    const tipoAtendimento = this.tiposAtendimento.find(
+      (tipo) => tipo.id === dto.tipo_atendimento_id && tipo.ativo,
     );
 
     if (!tipoAtendimento) {
@@ -148,21 +243,17 @@ export class AgendamentoService {
     }
 
     const id = this.proximoAgendamentoId++;
-
-    const protocolo =
-      `AGD-${dto.data_agendamento.replace(/-/g, '')}-${id}`;
+    const protocolo = `AGD-${dto.data_agendamento.replace(/-/g, '')}-${id}`;
 
     const novoAgendamento: Agendamento = {
       id,
       status: 'confirmado',
       protocolo,
-
       cliente: {
         nome: dto.cliente.nome,
         email: dto.cliente.email,
         telefone: dto.cliente.telefone,
       },
-
       tipo_atendimento_id: dto.tipo_atendimento_id,
       data_agendamento: dto.data_agendamento,
       horario: dto.horario,
@@ -173,38 +264,42 @@ export class AgendamentoService {
 
     return {
       message: 'Agendamento realizado com sucesso',
-
       agendamento: {
         id: novoAgendamento.id,
         status: novoAgendamento.status,
         protocolo: novoAgendamento.protocolo,
-        data_agendamento:
-          `${novoAgendamento.data_agendamento}T${novoAgendamento.horario}:00Z`,
+        data_agendamento: `${novoAgendamento.data_agendamento}T${novoAgendamento.horario}:00Z`,
       },
     };
   }
 
-  listarHorariosDisponiveis(data: string, tipoAtendimentoId: number): HorariosDisponiveisResponse {
+  listarHorariosDisponiveis(
+    data: string,
+    tipoAtendimentoId: number,
+  ): HorariosDisponiveisResponse {
     const tipoAtendimento = this.tiposAtendimento.find(
       (tipo) => tipo.id === tipoAtendimentoId && tipo.ativo,
     );
 
     if (!tipoAtendimento) {
-      throw new NotFoundException('Tipo de atendimento não encontrado ou inativo');
+      throw new NotFoundException(
+        'Tipo de atendimento não encontrado ou inativo',
+      );
     }
 
-    const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(data) && !Number.isNaN(Date.parse(data));
+    const dataValida =
+      /^\d{4}-\d{2}-\d{2}$/.test(data) && !Number.isNaN(Date.parse(data));
 
     if (!dataValida) {
-      throw new BadRequestException('Parâmetro "data" inválido. Utilize o formato YYYY-MM-DD');
+      throw new BadRequestException(
+        'Parâmetro "data" inválido. Utilize o formato YYYY-MM-DD',
+      );
     }
 
     const diaSemana = new Date(`${data}T00:00:00`).getDay();
-
     const funcionamentoDoDia = this.horariosFuncionamento.find(
-      (h) => h.diaSemana === diaSemana,
+      (horario) => horario.diaSemana === diaSemana,
     );
-
     const horariosBase = funcionamentoDoDia ? funcionamentoDoDia.horarios : [];
 
     const horariosOcupados = new Set(
