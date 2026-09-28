@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Op, WhereOptions } from 'sequelize';
 import { Blog } from '../../models/blog.model.js';
+import { CreateBlogDto } from './dto/create-blog.dto.js';
+import { UpdateBlogDto } from './dto/update-blog.dto.js';
 
 @Injectable()
 export class BlogService {
@@ -30,4 +32,19 @@ export class BlogService {
       order: [['data_publicacao', 'DESC']],
     });
   }
+
+  async create(createBlogDto: CreateBlogDto): Promise<Blog> {
+    return await this.blogModel.create({ ...createBlogDto, ativo: true } as any);
+  }
+
+  async update(id: number, updateBlogDto: UpdateBlogDto): Promise<Blog> {
+    const blog = await this.blogModel.findByPk(id);
+    
+    if (!blog) {
+      throw new NotFoundException(`Artigo com ID ${id} não encontrado`);
+    }
+    
+    return await blog.update(updateBlogDto);
+  }
 }
+
