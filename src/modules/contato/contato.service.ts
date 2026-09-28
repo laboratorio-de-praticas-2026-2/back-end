@@ -1,4 +1,3 @@
-
 import {
   Injectable,
   ConflictException,
@@ -32,10 +31,8 @@ export class ContatoService {
     whatsapp: '00 00000-0000',
     telefone: '11 1111-1111',
     email: 'portalcontabil@gmail.com.br',
-    endereco:
-      'R. Tamekishi Takano, 713 - Centro, Registro - SP, 11900-000',
-    horarioAtendimento:
-      'Segunda a Sexta, das 08:00 às 11:30, 13:00 às 18:00',
+    endereco: 'R. Tamekishi Takano, 713 - Centro, Registro - SP, 11900-000',
+    horarioAtendimento: 'Segunda a Sexta, das 08:00 às 11:30, 13:00 às 18:00',
   };
 
   async putContact(updateContatoDto: UpdateContatoDto) {
@@ -121,8 +118,6 @@ export class ContatoService {
     }
 
     // 5. Validar documento do responsável
-    // A validação recebe o valor original do DTO,
-    // evitando o conflito entre string e null.
     if (
       dto.cpf_cnpj &&
       !this.validarCpfCnpj(dto.cpf_cnpj)
@@ -209,7 +204,6 @@ export class ContatoService {
     const usuarioPlain = resultado.novoUsuario.get({
       plain: true,
     });
-
 
     delete usuarioPlain.senha;
 

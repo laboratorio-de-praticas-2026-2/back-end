@@ -4,11 +4,13 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AuthModule } from './modules/auth/auth.module.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { ClienteModule } from './modules/cliente/cliente.module.js';
+import { AdministracaoModule } from './modules/administracao/administracao.module.js';
 import { Usuario } from './models/usuario.model.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -41,11 +43,13 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'back-end',
     }),
 
+    AuthModule,
     ContatoModule,
     DisparoModule,
     MensagemModule,
     DashboardModule,
     ClienteModule,
+    AdministracaoModule,
   ],
   controllers: [AppController],
   providers: [AppService],
