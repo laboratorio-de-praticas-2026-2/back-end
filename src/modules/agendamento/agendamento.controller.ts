@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { AgendamentoService } from './agendamento.service.js';
 import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
+import { CriarAgendamentoDto } from './dto/criar-agendamento.dto.js';
 import { ConsultarHorariosDisponiveisDto } from './dto/consultar-horarios-disponiveis.dto.js';
 
 @Controller('agendamento')
@@ -17,6 +18,12 @@ export class AgendamentoController {
   @HttpCode(HttpStatus.CREATED)
   cadastrar(@Body() body: CriarTipoAtendimentoDto) {
     return this.agendamentoService.cadastrar(body);
+  }
+
+  @Post('agendamentos')
+  @HttpCode(HttpStatus.CREATED)
+  criarAgendamento(@Body() body: CriarAgendamentoDto) {
+    return this.agendamentoService.criarAgendamento(body);
   }
 
   @Get('horarios-disponiveis')

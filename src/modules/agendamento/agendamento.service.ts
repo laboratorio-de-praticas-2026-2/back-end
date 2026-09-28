@@ -1,5 +1,7 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
+import { CriarAgendamentoDto } from './dto/criar-agendamento.dto.js';
 
 export class TipoAtendimento {
   id: number;
@@ -8,17 +10,26 @@ export class TipoAtendimento {
   ativo: boolean;
 }
 
+export class Cliente {
+  nome: string;
+  email: string;
+  telefone: string;
+}
+
+export class Agendamento {
+  id: number;
+  status: string;
+  protocolo: string;
+  cliente: Cliente;
+  tipo_atendimento_id: number;
+  data_agendamento: string;
+  horario: string;
+  observacao?: string;
+}
+
 interface HorarioFuncionamento {
   diaSemana: number; // 0 = domingo ... 6 = sábado
   horarios: string[]; // horários de atendimento naquele dia, ex: '09:00'
-}
-
-interface Agendamento {
-  id: number;
-  data: string; // YYYY-MM-DD
-  horario: string; // HH:mm
-  tipoAtendimentoId: number;
-  status: 'confirmado' | 'cancelado';
 }
 
 export interface HorariosDisponiveisResponse {
@@ -46,6 +57,37 @@ export class AgendamentoService {
 
   private proximoId = 3;
 
+  private agendamentos: Agendamento[] = [
+    {
+      id: 1,
+      status: 'confirmado',
+      protocolo: 'AGD-20261001-1',
+      cliente: {
+        nome: 'Cliente inicial',
+        email: 'cliente@example.com',
+        telefone: '13999999999',
+      },
+      tipo_atendimento_id: 1,
+      data_agendamento: '2026-10-01',
+      horario: '11:00',
+    },
+    {
+      id: 2,
+      status: 'confirmado',
+      protocolo: 'AGD-20261001-2',
+      cliente: {
+        nome: 'Cliente inicial',
+        email: 'cliente2@example.com',
+        telefone: '13999999998',
+      },
+      tipo_atendimento_id: 1,
+      data_agendamento: '2026-10-01',
+      horario: '14:00',
+    },
+  ];
+
+  private proximoAgendamentoId = 101;
+
   // TODO: substituir por consulta ao banco de dados quando a tabela
   // de horários de funcionamento estiver disponível.
   private horariosFuncionamento: HorarioFuncionamento[] = [
@@ -54,13 +96,6 @@ export class AgendamentoService {
     { diaSemana: 3, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'] },
     { diaSemana: 4, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00', '15:30', '16:30'] },
     { diaSemana: 5, horarios: ['09:00', '10:00', '11:00', '14:00', '15:00'] },
-  ];
-
-  // TODO: substituir por consulta ao banco de dados quando a tabela
-  // de agendamentos estiver disponível.
-  private agendamentos: Agendamento[] = [
-    { id: 1, data: '2026-10-01', horario: '11:00', tipoAtendimentoId: 1, status: 'confirmado' },
-    { id: 2, data: '2026-10-01', horario: '14:00', tipoAtendimentoId: 1, status: 'confirmado' },
   ];
 
   listarAtivos(): TipoAtendimento[] {
@@ -80,6 +115,72 @@ export class AgendamentoService {
     return {
       message: 'Tipo de atendimento cadastrado com sucesso',
       id: novoTipo.id,
+    };
+  }
+
+  criarAgendamento(dto: CriarAgendamentoDto) {
+
+    const tipoAtendimento = this.tiposAtendimento.find(
+      (tipo) =>
+        tipo.id === dto.tipo_atendimento_id &&
+        tipo.ativo,
+    );
+
+    if (!tipoAtendimento) {
+      throw new NotFoundException(
+        'Tipo de atendimento não encontrado ou está inativo.',
+      );
+    }
+
+    const horarioOcupado = this.agendamentos.find(
+      (agendamento) =>
+        agendamento.data_agendamento === dto.data_agendamento &&
+        agendamento.horario === dto.horario &&
+        agendamento.status !== 'cancelado',
+    );
+
+    if (horarioOcupado) {
+      throw new ConflictException({
+        error: 'HORARIO_INDISPONIVEL',
+        message:
+          'O horário selecionado já foi preenchido por outro cliente. Escolha outro horário.',
+      });
+    }
+
+    const id = this.proximoAgendamentoId++;
+
+    const protocolo =
+      `AGD-${dto.data_agendamento.replace(/-/g, '')}-${id}`;
+
+    const novoAgendamento: Agendamento = {
+      id,
+      status: 'confirmado',
+      protocolo,
+
+      cliente: {
+        nome: dto.cliente.nome,
+        email: dto.cliente.email,
+        telefone: dto.cliente.telefone,
+      },
+
+      tipo_atendimento_id: dto.tipo_atendimento_id,
+      data_agendamento: dto.data_agendamento,
+      horario: dto.horario,
+      observacao: dto.observacao,
+    };
+
+    this.agendamentos.push(novoAgendamento);
+
+    return {
+      message: 'Agendamento realizado com sucesso',
+
+      agendamento: {
+        id: novoAgendamento.id,
+        status: novoAgendamento.status,
+        protocolo: novoAgendamento.protocolo,
+        data_agendamento:
+          `${novoAgendamento.data_agendamento}T${novoAgendamento.horario}:00Z`,
+      },
     };
   }
 
@@ -110,8 +211,8 @@ export class AgendamentoService {
       this.agendamentos
         .filter(
           (agendamento) =>
-            agendamento.data === data &&
-            agendamento.tipoAtendimentoId === tipoAtendimentoId &&
+            agendamento.data_agendamento === data &&
+            agendamento.tipo_atendimento_id === tipoAtendimentoId &&
             agendamento.status === 'confirmado',
         )
         .map((agendamento) => agendamento.horario),
