@@ -81,7 +81,9 @@ export class ContatoService {
     const cpfCnpjRespLimpo = dto.cpf_cnpj ? dto.cpf_cnpj.replace(/\D/g, '') : null;
     const emailNormalizado = dto.email.toLowerCase().trim();
 
-    const emailExiste = await this.usuarioModel.findOne({ where: { email: emailNormalizado } });
+    const emailExiste = await this.usuarioModel.findOne({
+      where: { email: emailNormalizado },
+    });
     if (emailExiste) {
       throw new ConflictException('E-mail já cadastrado.');
     }
