@@ -2,11 +2,13 @@ import { Injectable, ConflictException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/sequelize';
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
 import { CadastroPjDto } from './dto/cadastro-pj.dto.js';
-import * as crypto from 'crypto';
 
 // Modelos do Sequelize
 import { Usuario } from './entities/usuario.entity.js';
 import { Empresa } from './entities/empresa.entity.js';
+
+// Importa a função de hash scrypt padrão da PR #52 (ajusta o caminho relativo se necessário)
+import { hashPassword } from './utils/crypto.js'; 
 
 @Injectable()
 export class ContatoService {
@@ -39,7 +41,7 @@ export class ContatoService {
   }
 
   private validarCnpj(cnpj: string): boolean {
-    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$\vert{}^\d{14}$/.test(cnpj);
+    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$|^\d{14}$/.test(cnpj);
   }
 
   private validarCpfCnpj(doc: string): boolean {
@@ -71,9 +73,10 @@ export class ContatoService {
 
     const cnpjLimpo = dto.cnpj.replace(/\D/g, '');
     const cpfCnpjRespLimpo = dto.cpf_cnpj ? dto.cpf_cnpj.replace(/\D/g, '') : null;
+    const emailNormalizado = dto.email.toLowerCase().trim();
 
     // 1. Busca no Banco de Dados via Sequelize
-    const emailExiste = await this.usuarioModel.findOne({ where: { email: dto.email } });
+    const emailExiste = await this.usuarioModel.findOne({ where: { email: emailNormalizado } });
     if (emailExiste) {
       throw new ConflictException('E-mail já cadastrado.');
     }
@@ -83,16 +86,14 @@ export class ContatoService {
       throw new ConflictException('CNPJ já cadastrado.');
     }
 
-    // 2. Hash seguro de senha usando o módulo nativo crypto (pbkdf2)
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.pbkdf2Sync(dto.senha, salt, 1000, 64, 'sha512').toString('hex');
-    const senhaHash = `${salt}:${hash}`;
+    // 2. Hash seguro de senha usando o padrão scrypt da PR #52
+    const senhaHash = await hashPassword(dto.senha);
 
-    // 3. Persistência real no Banco de Dados via Sequelize
+    // 3. Persistência real no Banco de Dados via Sequelize na tabela unificada 'usuario'
     const novoUsuario = await this.usuarioModel.create({
       nome: dto.nome,
-      email: dto.email,
-      senha: senhaHash,
+      email: emailNormalizado,
+      senha: senhaHash, // Armazenado no padrão scrypt compatível com a autenticação
       nivel: 'cliente',
       cpfCnpj: cpfCnpjRespLimpo,
       celular: dto.celular,
