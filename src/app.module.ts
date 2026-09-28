@@ -11,6 +11,7 @@ import { BlogModule } from './modules/blog/blog.module.js';
 import { FaqModule } from './modules/faq/faq.module.js';
 import { Blog } from './models/blog.model.js';
 import { Faq } from './models/faq.model.js';
+import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -24,16 +25,13 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        dialect: 'mysql',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 3306),
-        username: configService.get<string>('MYSQL_USER', 'root'),
-        password: configService.get<string>('MYSQL_PASSWORD', ''),
-        database: configService.get<string>('MYSQL_DATABASE', 'laboratorio_praticas'),
-        models: [Blog, Faq],
-        autoLoadModels: true,
+        dialect: configService.get<string>('DB_DIALECT') as 'mysql',
+        host: configService.get<string>('DB_HOST'),
+        port: Number(configService.get<string>('DB_PORT')),
+        username: configService.get<string>('DB_USER'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
         synchronize: false,
-        logging: false,
       }),
     }),
 
@@ -48,6 +46,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     MensagemModule,
     BlogModule,
     FaqModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
