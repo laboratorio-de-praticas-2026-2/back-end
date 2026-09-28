@@ -12,7 +12,7 @@ import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
-import { RelatoriosModule } from './modules/relatorios/relatorios.module.js';
+
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
