@@ -8,7 +8,7 @@ import { Usuario } from './entities/usuario.entity.js';
 import { Empresa } from './entities/empresa.entity.js';
 
 // Importa a função de hash scrypt padrão da PR #52 (ajusta o caminho relativo se necessário)
-import { hashPassword } from './utils/crypto.js'; 
+import { hashPassword } from '../../commons/utils/crypto.js';
 
 @Injectable()
 export class ContatoService {
