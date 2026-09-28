@@ -19,7 +19,9 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "migration:up": "tsx ./node_modules/sequelize-cli/lib/sequelize db:migrate",
+    "migration:down": "tsx ./node_modules/sequelize-cli/lib/sequelize db:migrate:undo"
   },
   "dependencies": {
     "@angular-devkit/core": "^22.1.8",
@@ -67,8 +69,10 @@
     "ora": "^5.4.1",
     "oxlint": "^1.58.0",
     "prettier": "^3.4.2",
+    "sequelize-cli": "^6.6.5",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   },
