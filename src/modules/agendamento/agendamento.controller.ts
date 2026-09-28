@@ -1,15 +1,33 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus, ParseIntPipe, Param, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { AgendamentoService } from './agendamento.service.js';
 import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
+import { CriarAgendamentoDto } from './dto/criar-agendamento.dto.js';
+import { ConsultarHorariosDisponiveisDto } from './dto/consultar-horarios-disponiveis.dto.js';
 
-@Controller('agendamento')
+@Controller()
 export class AgendamentoController {
   constructor(private readonly agendamentoService: AgendamentoService) { }
 
-  @Get()
+  @Get('tipos-atendimento')
   @HttpCode(HttpStatus.OK)
-  listar() {
+  listarTiposAtendimento() {
     return this.agendamentoService.listarAtivos();
+  }
+
+  @Post('tipos-atendimento')
+  @HttpCode(HttpStatus.CREATED)
+  cadastrarTipoAtendimento(@Body() body: CriarTipoAtendimentoDto) {
+    return this.agendamentoService.cadastrar(body);
   }
 
   @Get('agendamentos')
@@ -23,18 +41,29 @@ export class AgendamentoController {
       data_inicio,
       data_fim,
       status,
-      tipo_atendimento_id: tipo_atendimento_id ? Number(tipo_atendimento_id) : undefined,
+      tipo_atendimento_id: tipo_atendimento_id
+        ? Number(tipo_atendimento_id)
+        : undefined,
     });
   }
 
   @Get('agendamentos/:id')
   buscarAgendamento(@Param('id', ParseIntPipe) id: number) {
-  return this.agendamentoService.buscarAgendamento(id);
+    return this.agendamentoService.buscarAgendamento(id);
   }
 
-  @Post()
+  @Post('agendamentos')
   @HttpCode(HttpStatus.CREATED)
-  cadastrar(@Body() body: CriarTipoAtendimentoDto) {
-    return this.agendamentoService.cadastrar(body);
+  criarAgendamento(@Body() body: CriarAgendamentoDto) {
+    return this.agendamentoService.criarAgendamento(body);
+  }
+
+  @Get('agendamentos/horarios-disponiveis')
+  @HttpCode(HttpStatus.OK)
+  horariosDisponiveis(@Query() query: ConsultarHorariosDisponiveisDto) {
+    return this.agendamentoService.listarHorariosDisponiveis(
+      query.data,
+      Number(query.tipo_atendimento_id),
+    );
   }
 }
