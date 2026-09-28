@@ -7,8 +7,12 @@ import {
   Param,
   Post,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 
+import { CreateReportDto } from './dto/create-report.dto.js';
+import { FindReportsDto } from './dto/find-reports.dto.js';
+import { RelatoriosService } from './relatorios.service.js';
 import { RelatoriosProducer } from './relatorios.producer.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
@@ -16,10 +20,26 @@ import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
 @Controller('relatorios')
 export class RelatoriosController {
   constructor(
+    private readonly relatoriosService: RelatoriosService,
     private readonly relatoriosProducer: RelatoriosProducer,
     private readonly prisma: PrismaService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
+
+  @Post()
+  async create(@Body() data: CreateReportDto) {
+    return this.relatoriosService.create(data);
+  }
+
+  @Get('categorias')
+  async findCategories() {
+    return this.relatoriosService.findCategories();
+  }
+
+  @Get()
+  async findAll(@Query() filters: FindReportsDto) {
+    return this.relatoriosService.findAll(filters);
+  }
 
   @Post('generate')
   async gerarRelatorio(@Body() body: { relatorioId: number }) {
@@ -43,9 +63,7 @@ export class RelatoriosController {
 
     await this.prisma.relatorio.update({
       where: { id: body.relatorioId },
-      data: {
-        status: 'pendente',
-      },
+      data: { status: 'pendente' },
     });
 
     await this.relatoriosProducer.adicionarGeracao(body.relatorioId);

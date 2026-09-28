@@ -1,6 +1,121 @@
 import { RelatoriosController } from './relatorios.controller.js';
+import { RelatoriosService } from './relatorios.service.js';
 
 describe('RelatoriosController', () => {
+  const createService = () => ({
+    create: vi.fn(),
+    findCategories: vi.fn(),
+    findAll: vi.fn(),
+  });
+
+  it('deve estar definido', () => {
+    const service = createService();
+
+    const controller = new RelatoriosController(
+      service as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    expect(controller).toBeDefined();
+  });
+
+  it('deve criar um relatório', async () => {
+    const service = createService();
+
+    const data = {
+      nome: 'Relatório Financeiro',
+      categoria: 'Financeiro',
+      descricao: 'Relatório financeiro mensal',
+      data_inicio: '2026-09-01',
+      data_termino: '2026-09-30',
+    };
+
+    const createdReport = {
+      id: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
+      ...data,
+      status: 'PENDENTE',
+      arquivoUrl: null,
+    };
+
+    service.create.mockResolvedValue(createdReport);
+
+    const controller = new RelatoriosController(
+      service as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await controller.create(data as any);
+
+    expect(result).toEqual(createdReport);
+    expect(service.create).toHaveBeenCalledWith(data);
+  });
+
+  it('deve retornar as categorias dos relatórios', async () => {
+    const service = createService();
+
+    const categories = ['Financeiro', 'Fiscal', 'Contábil'];
+
+    service.findCategories.mockResolvedValue(categories);
+
+    const controller = new RelatoriosController(
+      service as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await controller.findCategories();
+
+    expect(result).toEqual(categories);
+    expect(service.findCategories).toHaveBeenCalledWith();
+  });
+
+  it('deve retornar relatórios com filtros', async () => {
+    const service = createService();
+
+    const filters = {
+      nome: 'Financeiro',
+      categoria: 'Financeiro',
+      status: 'PENDENTE' as const,
+      data_inicio: '2026-09-01',
+      data_termino: '2026-09-30',
+      page: 1,
+      limit: 10,
+    };
+
+    const response = {
+      dados: [
+        {
+          id: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
+          nome: 'Relatório Financeiro',
+          categoria: 'Financeiro',
+          status: 'PENDENTE',
+        },
+      ],
+      total: 1,
+      pagina: 1,
+      limite: 10,
+    };
+
+    service.findAll.mockResolvedValue(response);
+
+    const controller = new RelatoriosController(
+      service as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await controller.findAll(filters as any);
+
+    expect(result).toEqual(response);
+    expect(service.findAll).toHaveBeenCalledWith(filters);
+  });
+
   it('deve colocar o relatório pendente e enviar para a fila', async () => {
     const adicionarGeracao = vi.fn().mockResolvedValue(undefined);
     const findUnique = vi.fn().mockResolvedValue({
@@ -12,20 +127,19 @@ describe('RelatoriosController', () => {
       status: 'pendente',
     });
 
-    const producer = {
-      adicionarGeracao,
-    };
-
-    const prisma = {
-      relatorio: {
-        findUnique,
-        update,
-      },
-    };
+    const service = createService();
 
     const controller = new RelatoriosController(
-      producer as any,
-      prisma as any,
+      service as any,
+      {
+        adicionarGeracao,
+      } as any,
+      {
+        relatorio: {
+          findUnique,
+          update,
+        },
+      } as any,
       {} as any,
     );
 
@@ -55,8 +169,10 @@ describe('RelatoriosController', () => {
 
   it('deve rejeitar relatorioId inválido', async () => {
     const adicionarGeracao = vi.fn();
+    const service = createService();
 
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao,
       } as any,
@@ -75,8 +191,10 @@ describe('RelatoriosController', () => {
 
   it('deve rejeitar relatório inexistente', async () => {
     const findUnique = vi.fn().mockResolvedValue(null);
+    const service = createService();
 
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao: vi.fn(),
       } as any,
@@ -100,7 +218,10 @@ describe('RelatoriosController', () => {
       status: 'gerado',
     };
 
+    const service = createService();
+
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao: vi.fn(),
       } as any,
@@ -118,7 +239,10 @@ describe('RelatoriosController', () => {
   });
 
   it('deve buscar o PDF de um relatório pelo ID', async () => {
+    const service = createService();
+
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao: vi.fn(),
       } as any,
@@ -143,7 +267,10 @@ describe('RelatoriosController', () => {
   });
 
   it('deve rejeitar PDF inexistente', async () => {
+    const service = createService();
+
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao: vi.fn(),
       } as any,
@@ -166,7 +293,10 @@ describe('RelatoriosController', () => {
   });
 
   it('deve rejeitar exclusão de relatório inexistente', async () => {
+    const service = createService();
+
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao: vi.fn(),
       } as any,
@@ -194,8 +324,10 @@ describe('RelatoriosController', () => {
     });
 
     const deletePdf = vi.fn().mockResolvedValue(undefined);
+    const service = createService();
 
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao: vi.fn(),
       } as any,
@@ -213,8 +345,8 @@ describe('RelatoriosController', () => {
     const resposta = await controller.excluirRelatorio('1');
 
     expect(deletePdf).toHaveBeenCalledWith(
-  'relatorios/relatorio.pdf',
-);
+      'relatorios/relatorio.pdf',
+    );
 
     expect(deleteRelatorio).toHaveBeenCalledWith({
       where: { id: 1 },
@@ -228,8 +360,10 @@ describe('RelatoriosController', () => {
 
   it('deve responder rapidamente após enviar o relatório para a fila', async () => {
     const adicionarGeracao = vi.fn().mockResolvedValue(undefined);
+    const service = createService();
 
     const controller = new RelatoriosController(
+      service as any,
       {
         adicionarGeracao,
       } as any,
