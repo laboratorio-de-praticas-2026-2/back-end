@@ -8,12 +8,16 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
+import { BlogModule } from './modules/blog/blog.module.js';
+import { FaqModule } from './modules/faq/faq.module.js';
+import { ChatModule } from './modules/chat/chat.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { ClienteModule } from './modules/cliente/cliente.module.js';
 import { AdministracaoModule } from './modules/administracao/administracao.module.js';
 import { Usuario } from './models/usuario.model.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
+const observeEnabled = !!process.env.OBSERVE_APP_KEY && !!process.env.OBSERVE_APP_SECRET;
 
 @Module({
   imports: [
@@ -37,16 +41,19 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       }),
     }),
 
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
+    ...(observeEnabled ? [ObserveModule.forRoot({
+      appKey: process.env.OBSERVE_APP_KEY!,
+      appSecret: process.env.OBSERVE_APP_SECRET!,
       serviceId: 'back-end',
-    }),
+    })] : []),
 
     AuthModule,
     ContatoModule,
     DisparoModule,
     MensagemModule,
+    BlogModule,
+    FaqModule,
+    ChatModule,
     DashboardModule,
     ClienteModule,
     AdministracaoModule,

@@ -9,12 +9,7 @@ import {
 } from './usuario-auth.repository.js';
 import type { UsuarioAuthRepository } from './usuario-auth.repository.js';
 
-/**
- * Simula exatamente o que o Cadastro PF (`ClienteService`) grava: mesmo
- * model `Usuario`, senha com `PasswordService` (bcrypt). Isso é o que
- * comprova que o login enxerga um usuário cadastrado pelo PF sem precisar
- * de banco de verdade.
- */
+// O teste com banco real fica em test/cadastro-login.mysql.test.mjs.
 describe('SequelizeUsuarioAuthRepository (integração com o model Usuario)', () => {
   let repo: UsuarioAuthRepository;
   const senhas = new PasswordService();
@@ -86,5 +81,10 @@ describe('SequelizeUsuarioAuthRepository (integração com o model Usuario)', ()
   it('busca por id segue a mesma regra de soft delete', async () => {
     expect(await repo.buscarPorId(1)).not.toBeNull();
     expect(await repo.buscarPorId(2)).toBeNull();
+  });
+
+  it('retorna null para e-mail ou id inexistente', async () => {
+    expect(await repo.buscarPorEmail('inexistente@example.test')).toBeNull();
+    expect(await repo.buscarPorId(42)).toBeNull();
   });
 });
