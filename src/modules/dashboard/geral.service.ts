@@ -76,7 +76,7 @@ export class GeralService {
 
     @InjectModel(Usuario)
     private readonly usuarioModel: typeof Usuario,
-  ) {}
+  ) { }
 
   async getIndicadores(startDate?: string, endDate?: string) {
     const periodo = resolvePeriodo(startDate, endDate);
@@ -93,6 +93,11 @@ export class GeralService {
       .toISOString()
       .slice(0, 10);
 
+    const inicioHorario = new Date(`${dataInicioPeriodo}T00:00:00-03:00`);
+    const fimHorario = new Date(
+      `${dataFimPeriodoExclusivo}T00:00:00-03:00`,
+    );
+
     const [
       processosEmAndamento,
       processosConcluidos,
@@ -105,9 +110,10 @@ export class GeralService {
     ] = await Promise.all([
       this.solicitacaoModel.count({
         where: {
+          deletedAt: null,
           dataSolicitacao: {
-            [Op.gte]: periodo.start,
-            [Op.lt]: periodo.endExclusive,
+            [Op.gte]: inicioHorario,
+            [Op.lt]: fimHorario,
           },
           status: {
             [Op.in]: [
@@ -122,9 +128,10 @@ export class GeralService {
 
       this.solicitacaoModel.count({
         where: {
+          deletedAt: null,
           dataSolicitacao: {
-            [Op.gte]: periodo.start,
-            [Op.lt]: periodo.endExclusive,
+            [Op.gte]: inicioHorario,
+            [Op.lt]: fimHorario,
           },
           status: StatusSolicitacao.CONCLUIDO,
         },
@@ -132,15 +139,17 @@ export class GeralService {
 
       this.solicitacaoModel.count({
         where: {
+          deletedAt: null,
           dataSolicitacao: {
-            [Op.gte]: periodo.start,
-            [Op.lt]: periodo.endExclusive,
+            [Op.gte]: inicioHorario,
+            [Op.lt]: fimHorario,
           },
         },
       }),
 
       this.obrigacaoModel.count({
         where: {
+          deletedAt: null,
           naturezaCobranca: NaturezaCobranca.TRIBUTO,
           status: StatusObrigacao.PENDENTE,
           vencimento: {
@@ -157,7 +166,7 @@ export class GeralService {
 
       this.calcularClientesInadimplentes(dataHoje),
 
-      this.calcularTaxaRetencao(periodo.start, periodo.endExclusive),
+      this.calcularTaxaRetencao(inicioHorario, fimHorario),
 
       this.calcularDebitosEmAberto(),
     ]);
@@ -183,6 +192,7 @@ export class GeralService {
     const parcelasPagas = await this.parcelaModel.findAll({
       attributes: ['id', 'idPagamento', 'valor'],
       where: {
+        deletedAt: null,
         status: StatusParcela.PAGO,
         dataPagamento: {
           [Op.gte]: dataInicio,
@@ -202,6 +212,7 @@ export class GeralService {
     const pagamentos = await this.pagamentoModel.findAll({
       attributes: ['id', 'idObrigacao'],
       where: {
+        deletedAt: null,
         id: {
           [Op.in]: pagamentoIds,
         },
@@ -219,6 +230,7 @@ export class GeralService {
     const obrigacoes = await this.obrigacaoModel.findAll({
       attributes: ['id', 'naturezaCobranca'],
       where: {
+        deletedAt: null,
         id: {
           [Op.in]: obrigacaoIds,
         },
@@ -486,7 +498,7 @@ export class GeralService {
   ): Promise<number | null> {
     const duracaoPeriodoDias = Math.round(
       (fimAtualExclusivo.getTime() - inicioAtual.getTime()) /
-        (24 * 60 * 60 * 1000),
+      (24 * 60 * 60 * 1000),
     );
 
     const inicioAnterior = new Date(inicioAtual);
@@ -500,6 +512,7 @@ export class GeralService {
       this.solicitacaoModel.findAll({
         attributes: ['usuarioId'],
         where: {
+          deletedAt: null,
           dataSolicitacao: {
             [Op.gte]: inicioAtual,
             [Op.lt]: fimAtualExclusivo,
@@ -513,6 +526,7 @@ export class GeralService {
       this.solicitacaoModel.findAll({
         attributes: ['usuarioId'],
         where: {
+          deletedAt: null,
           dataSolicitacao: {
             [Op.gte]: inicioAnterior,
             [Op.lt]: fimAnteriorExclusivo,
@@ -629,15 +643,15 @@ export class GeralService {
     const obrigacaoEmpresaRows =
       obrigacoesEmpresa.length > 0
         ? await this.obrigacaoEmpresaModel.findAll({
-            attributes: ['idObrigacao', 'idEmpresa'],
-            where: {
-              idObrigacao: {
-                [Op.in]: obrigacoesEmpresa.map(
-                  (obrigacao) => obrigacao.id,
-                ),
-              },
+          attributes: ['idObrigacao', 'idEmpresa'],
+          where: {
+            idObrigacao: {
+              [Op.in]: obrigacoesEmpresa.map(
+                (obrigacao) => obrigacao.id,
+              ),
             },
-          })
+          },
+        })
         : [];
 
     const obrigacaoEmpresaPorObrigacao = new Map(
@@ -660,15 +674,15 @@ export class GeralService {
     const obrigacaoServicoRows =
       obrigacoesServico.length > 0
         ? await this.obrigacaoServicoModel.findAll({
-            attributes: ['idObrigacao', 'idServico', 'solicitacaoId'],
-            where: {
-              idObrigacao: {
-                [Op.in]: obrigacoesServico.map(
-                  (obrigacao) => obrigacao.id,
-                ),
-              },
+          attributes: ['idObrigacao', 'idServico', 'solicitacaoId'],
+          where: {
+            idObrigacao: {
+              [Op.in]: obrigacoesServico.map(
+                (obrigacao) => obrigacao.id,
+              ),
             },
-          })
+          },
+        })
         : [];
 
     const obrigacaoServicoPorObrigacao = new Map(
@@ -683,14 +697,14 @@ export class GeralService {
 
     const solicitacoes = solicitacaoIds.length
       ? await this.solicitacaoModel.findAll({
-          attributes: ['id', 'usuarioId', 'empresaId'],
-          where: {
-            id: {
-              [Op.in]: solicitacaoIds,
-            },
+        attributes: ['id', 'usuarioId', 'empresaId'],
+        where: {
+          id: {
+            [Op.in]: solicitacaoIds,
           },
-          paranoid: false,
-        })
+        },
+        paranoid: false,
+      })
       : [];
 
     const solicitacaoPorId = new Map(
@@ -705,13 +719,13 @@ export class GeralService {
 
     const empresas = empresaIds.size
       ? await this.empresaModel.findAll({
-          attributes: ['id', 'usuarioId', 'regimeTributario'],
-          where: {
-            id: {
-              [Op.in]: [...empresaIds],
-            },
+        attributes: ['id', 'usuarioId', 'regimeTributario'],
+        where: {
+          id: {
+            [Op.in]: [...empresaIds],
           },
-        })
+        },
+      })
       : [];
 
     for (const empresa of empresas) {
@@ -726,14 +740,14 @@ export class GeralService {
 
     const servicos = servicoIds.length
       ? await this.servicoModel.findAll({
-          attributes: ['id', 'nome'],
-          where: {
-            id: {
-              [Op.in]: servicoIds,
-            },
+        attributes: ['id', 'nome'],
+        where: {
+          id: {
+            [Op.in]: servicoIds,
           },
-          paranoid: false,
-        })
+        },
+        paranoid: false,
+      })
       : [];
 
     const servicoPorId = new Map(
