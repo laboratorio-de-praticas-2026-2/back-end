@@ -1,9 +1,33 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
 
 import { ServicosService } from './servicos.service.js';
 import { CreateServicoDto } from './dto/create-servico.dto.js';
 import { UpdateServicoDto } from './dto/update-servico.dto.js';
 import { UpdateStatusServicoDto } from './dto/update-status-servico.dto.js';
+
+// Infraestrutura de autenticação já existente no projeto.
+// CurrentUser recupera o usuário identificado através do JWT.
+import {
+  CurrentUser,
+} from '../../../commons/decorators/current-role.decorator.js';
+
+import type {
+  AuthenticatedUser,
+} from '../../../commons/decorators/current-role.decorator.js';
+
+// Regra compartilhada criada para garantir que somente
+// usuários administradores executem operações administrativas.
+import { requireAdmin } from '../../../commons/require-admin.js';
+
 
 @Controller('servicos')
 export class ServicosController {
@@ -14,10 +38,17 @@ export class ServicosController {
     private readonly servicosService: ServicosService,
   ) {}
 
+
+  // ============================================================
+  // CONSULTA PÚBLICA
+  // ============================================================
+
   // Endpoint destinado ao consumo dos serviços disponíveis.
   //
-  // FRONT:
+  // FRONT / VITRINE:
   // GET /servicos
+  //
+  // Esta rota permanece pública.
   //
   // Retorna somente serviços ativos, pois serviços pausados
   // não devem ser disponibilizados para a Vitrine.
@@ -26,11 +57,17 @@ export class ServicosController {
     return this.servicosService.listarAtivos();
   }
 
-   // CMS: serviços ativos e pausados.
+
+  // ============================================================
+  // CONSULTAS ADMINISTRATIVAS
+  // ============================================================
+
+  // CMS: serviços ativos e pausados.
   @Get('admin')
   async listarTodos() {
     return this.servicosService.listarTodos();
   }
+
 
   // Retorna um serviço específico para gerenciamento no CMS.
   //
@@ -47,17 +84,30 @@ export class ServicosController {
   }
 
 
+  // ============================================================
+  // OPERAÇÕES ADMINISTRATIVAS PROTEGIDAS
+  // ============================================================
+
   // Cadastra um novo serviço através do CMS.
   //
   // FRONT ADMINISTRATIVO:
   // POST /servicos/admin
   //
-  // O corpo da requisição deve seguir
-  // o contrato definido em CreateServicoDto.
+  // SEGURANÇA:
+  // CurrentUser identifica o usuário da requisição.
+  // requireAdmin impede a operação quando:
+  //
+  // - não existe usuário autenticado -> HTTP 401
+  // - usuário não é administrador   -> HTTP 403
+  //
+  // Somente administradores chegam ao Service.
   @Post('admin')
   async criar(
     @Body() dados: CreateServicoDto,
+    @CurrentUser() user: AuthenticatedUser | null,
   ) {
+    requireAdmin(user);
+
     return this.servicosService.criar(dados);
   }
 
@@ -69,11 +119,16 @@ export class ServicosController {
   //
   // Não é necessário enviar todos os campos.
   // O Front pode enviar somente aquilo que foi alterado.
+  //
+  // A operação exige usuário autenticado com perfil administrador.
   @Patch('admin/:id')
   async atualizar(
     @Param('id', ParseIntPipe) id: number,
     @Body() dados: UpdateServicoDto,
+    @CurrentUser() user: AuthenticatedUser | null,
   ) {
+    requireAdmin(user);
+
     return this.servicosService.atualizar(id, dados);
   }
 
@@ -89,11 +144,16 @@ export class ServicosController {
   //
   // A alteração afeta diretamente a disponibilidade
   // do serviço para a Vitrine.
+  //
+  // A operação exige usuário autenticado com perfil administrador.
   @Patch('admin/:id/status')
   async atualizarStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dados: UpdateStatusServicoDto,
+    @CurrentUser() user: AuthenticatedUser | null,
   ) {
+    requireAdmin(user);
+
     return this.servicosService.atualizarStatus(id, dados);
   }
 
@@ -107,16 +167,22 @@ export class ServicosController {
   // tanto no CMS quanto na Vitrine.
   //
   // Caso o serviço não exista, a API retorna 404.
+  //
+  // A operação exige usuário autenticado com perfil administrador.
   @Delete('admin/:id')
   async remover(
     @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser | null,
   ) {
+    requireAdmin(user);
+
     await this.servicosService.remover(id);
 
     return {
       message: 'Serviço removido com sucesso.',
     };
   }
+
 
   // TODO:
   // validar comportamento de DELETE
@@ -125,4 +191,5 @@ export class ServicosController {
 
 
 // Comentários dispostos temporariamente até a integração do front-end
-// To-do: Elaborar documentação descritiva e apagar comentários desnecessários para compreensão do fluxo do back -> front
+// To-do: Elaborar documentação descritiva e apagar comentários
+// desnecessários para compreensão do fluxo do back -> front
