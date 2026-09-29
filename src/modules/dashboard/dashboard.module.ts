@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../infra/prisma/prisma.module.js';
 import { FinanceiroController } from './financeiro.controller.js';
 import { FinanceiroService } from './financeiro.service.js';
 import { ClientesController } from './clientes.controller.js';
@@ -15,6 +16,7 @@ import { GeralController } from './geral.controller.js';
 import { GeralService } from './geral.service.js';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [
     FinanceiroController,
     ClientesController,
