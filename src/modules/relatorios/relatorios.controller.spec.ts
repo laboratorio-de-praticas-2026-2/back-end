@@ -1,5 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
 import { RelatoriosController } from './relatorios.controller.js';
-import { RelatoriosService } from './relatorios.service.js';
 
 describe('RelatoriosController', () => {
   const createService = () => ({
@@ -13,6 +13,7 @@ describe('RelatoriosController', () => {
 
     const controller = new RelatoriosController(
       service as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -46,6 +47,7 @@ describe('RelatoriosController', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     const result = await controller.create(data as any);
@@ -63,6 +65,7 @@ describe('RelatoriosController', () => {
 
     const controller = new RelatoriosController(
       service as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -108,6 +111,7 @@ describe('RelatoriosController', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     const result = await controller.findAll(filters as any);
@@ -118,10 +122,12 @@ describe('RelatoriosController', () => {
 
   it('deve colocar o relatório pendente e enviar para a fila', async () => {
     const adicionarGeracao = vi.fn().mockResolvedValue(undefined);
+
     const findUnique = vi.fn().mockResolvedValue({
       id: 1,
       status: 'gerado',
     });
+
     const update = vi.fn().mockResolvedValue({
       id: 1,
       status: 'pendente',
@@ -140,6 +146,7 @@ describe('RelatoriosController', () => {
           update,
         },
       } as any,
+      {} as any,
       {} as any,
     );
 
@@ -178,6 +185,7 @@ describe('RelatoriosController', () => {
       } as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     await expect(
@@ -203,6 +211,7 @@ describe('RelatoriosController', () => {
           findUnique,
         },
       } as any,
+      {} as any,
       {} as any,
     );
 
@@ -231,6 +240,7 @@ describe('RelatoriosController', () => {
         },
       } as any,
       {} as any,
+      {} as any,
     );
 
     const resposta = await controller.buscarRelatorio('1');
@@ -255,6 +265,7 @@ describe('RelatoriosController', () => {
           }),
         },
       } as any,
+      {} as any,
       {} as any,
     );
 
@@ -285,6 +296,7 @@ describe('RelatoriosController', () => {
       {
         deletePdf: vi.fn(),
       } as any,
+      {} as any,
     );
 
     await expect(
@@ -308,6 +320,7 @@ describe('RelatoriosController', () => {
       {
         deletePdf: vi.fn(),
       } as any,
+      {} as any,
     );
 
     await expect(
@@ -317,6 +330,7 @@ describe('RelatoriosController', () => {
 
   it('deve excluir um relatório pelo ID e remover o PDF do Cloudinary', async () => {
     const deleteRelatorio = vi.fn().mockResolvedValue({});
+
     const findUnique = vi.fn().mockResolvedValue({
       id: 1,
       urlDocumentoHash:
@@ -340,6 +354,7 @@ describe('RelatoriosController', () => {
       {
         deletePdf,
       } as any,
+      {} as any,
     );
 
     const resposta = await controller.excluirRelatorio('1');
@@ -380,6 +395,7 @@ describe('RelatoriosController', () => {
         },
       } as any,
       {} as any,
+      {} as any,
     );
 
     const inicio = Date.now();
@@ -393,5 +409,81 @@ describe('RelatoriosController', () => {
     expect(adicionarGeracao).toHaveBeenCalledWith(1);
     expect(resposta.status).toBe('pendente');
     expect(duracao).toBeLessThan(1000);
+  });
+
+  it('envia o PDF diretamente com os headers de preview', async () => {
+    const pdf = Buffer.from('%PDF-test');
+
+    const pdfGeneratorService = {
+      gerar: vi.fn().mockResolvedValue(pdf),
+    };
+
+    const response = {
+      set: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
+
+    const dto = {
+      titulo: 'Relatório financeiro',
+      nomeCliente: 'Cliente de teste',
+      itens: [
+        {
+          descricao: 'Honorários',
+          valor: 500,
+          status: 'Pago',
+        },
+      ],
+    };
+
+    const controller = new RelatoriosController(
+      {
+        simular: vi.fn(),
+      } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      pdfGeneratorService as any,
+    );
+
+    await controller.preview(dto as any, response as any);
+
+    expect(pdfGeneratorService.gerar).toHaveBeenCalledWith(dto);
+
+    expect(response.set).toHaveBeenCalledWith({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline',
+      'Content-Length': String(pdf.length),
+    });
+
+    expect(response.send).toHaveBeenCalledWith(pdf);
+  });
+
+  it('propaga o erro do gerador para o tratamento padrão do Nest', async () => {
+    const error = new Error('Falha ao gerar PDF');
+
+    const pdfGeneratorService = {
+      gerar: vi.fn().mockRejectedValue(error),
+    };
+
+    const response = {
+      set: vi.fn(),
+      send: vi.fn(),
+    };
+
+    const controller = new RelatoriosController(
+      {
+        simular: vi.fn(),
+      } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      pdfGeneratorService as any,
+    );
+
+    await expect(
+      controller.preview({} as any, response as any),
+    ).rejects.toThrow(error);
+
+    expect(response.send).not.toHaveBeenCalled();
   });
 });

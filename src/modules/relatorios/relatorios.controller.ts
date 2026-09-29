@@ -8,12 +8,19 @@ import {
   Post,
   NotFoundException,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 
 import { CreateReportDto } from './dto/create-report.dto.js';
 import { FindReportsDto } from './dto/find-reports.dto.js';
+import { RelatorioPdfDto } from './dto/relatorio-pdf.dto.js';
+import { SimulacaoDto } from './dto/simulacao.dto.js';
+
 import { RelatoriosService } from './relatorios.service.js';
 import { RelatoriosProducer } from './relatorios.producer.js';
+import { PdfGeneratorService } from './pdf-generator.service.js';
+
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
 
@@ -24,7 +31,29 @@ export class RelatoriosController {
     private readonly relatoriosProducer: RelatoriosProducer,
     private readonly prisma: PrismaService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly pdfGeneratorService: PdfGeneratorService,
   ) {}
+
+  @Post('simulacao')
+  simular(@Body() dto: SimulacaoDto) {
+    return this.relatoriosService.simular(dto);
+  }
+
+  @Post('preview')
+  async preview(
+    @Body() dto: RelatorioPdfDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    const pdf = await this.pdfGeneratorService.gerar(dto);
+
+    response
+      .set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'inline',
+        'Content-Length': String(pdf.length),
+      })
+      .send(pdf);
+  }
 
   @Post()
   async create(@Body() data: CreateReportDto) {
