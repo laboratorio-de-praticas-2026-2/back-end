@@ -7,6 +7,10 @@ import { AppService } from './app.service.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
+import { BlogModule } from './modules/blog/blog.module.js';
+import { FaqModule } from './modules/faq/faq.module.js';
+import { Blog } from './models/blog.model.js';
+import { Faq } from './models/faq.model.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
@@ -42,6 +46,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ContatoModule,
     DisparoModule,
     MensagemModule,
+    BlogModule,
+    FaqModule,
     ChatModule,
     DashboardModule,
   ],
