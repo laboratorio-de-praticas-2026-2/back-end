@@ -38,9 +38,10 @@ export class Parcela extends Model<Parcela> {
   @AllowNull(false) @Column(DataType.DATEONLY)
   declare vencimento: string;
 
-  @AllowNull(true) @Column(DataType.DATEONLY)
+  @AllowNull(true) @Column({ type: DataType.DATEONLY, field: 'data_pagamento' })
   declare dataPagamento: string | null;
 
-  @DeletedAt @Column(DataType.DATE(3))
+  @DeletedAt
+  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
   declare deletedAt: Date | null;
 }

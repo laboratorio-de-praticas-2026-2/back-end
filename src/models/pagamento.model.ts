@@ -31,7 +31,10 @@ export class Pagamento extends Model<Pagamento> {
   declare qtdParcelas: number;
 
   @AllowNull(false)
-  @Column(DataType.ENUM(...Object.values(TipoPagamento)))
+  @Column({
+    type: DataType.ENUM(...Object.values(TipoPagamento)),
+    field: 'tipo_pagamento',
+  })
   declare tipoPagamento: TipoPagamento;
 
   @AllowNull(false)
@@ -45,6 +48,7 @@ export class Pagamento extends Model<Pagamento> {
   @Column({ type: DataType.DATE(3), field: 'created_at' })
   declare createdAt: Date;
 
-  @DeletedAt @Column(DataType.DATE(3))
+  @DeletedAt
+  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
   declare deletedAt: Date | null;
 }

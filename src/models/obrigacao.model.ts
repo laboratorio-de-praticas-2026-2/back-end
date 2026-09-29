@@ -34,7 +34,10 @@ export class Obrigacao extends Model<Obrigacao> {
   declare tipo: TipoObrigacao;
 
   @AllowNull(true)
-  @Column(DataType.ENUM(...Object.values(NaturezaCobranca)))
+  @Column({
+    type: DataType.ENUM(...Object.values(NaturezaCobranca)),
+    field: 'natureza_cobranca',
+  })
   declare naturezaCobranca: NaturezaCobranca | null;
 
   @AllowNull(true) @Column(DataType.TEXT)
@@ -58,6 +61,7 @@ export class Obrigacao extends Model<Obrigacao> {
   @Column({ type: DataType.DATE(3), field: 'created_at' })
   declare createdAt: Date;
 
-  @DeletedAt @Column(DataType.DATE(3))
+  @DeletedAt
+  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
   declare deletedAt: Date | null;
 }

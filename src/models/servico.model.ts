@@ -19,15 +19,16 @@ export class Servico extends Model<Servico> {
   @AllowNull(true) @Column(DataType.TEXT)
   declare descricao: string | null;
 
-  @AllowNull(true) @Column(DataType.DECIMAL(10, 2))
+  @AllowNull(true) @Column({ type: DataType.DECIMAL(10, 2), field: 'valor_base' })
   declare valorBase: number | null;
 
-  @AllowNull(true) @Column(DataType.INTEGER)
+  @AllowNull(true) @Column({ type: DataType.INTEGER, field: 'prazo_estimado_dias' })
   declare prazoEstimadoDias: number | null;
 
   @Default(true) @AllowNull(false) @Column(DataType.BOOLEAN)
   declare ativo: boolean;
 
-  @DeletedAt @Column(DataType.DATE(3))
+  @DeletedAt
+  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
   declare deletedAt: Date | null;
 }

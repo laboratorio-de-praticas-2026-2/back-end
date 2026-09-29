@@ -55,6 +55,7 @@ export class Solicitacao extends Model<Solicitacao> {
   @Column({ type: DataType.DATE(3), field: 'data_conclusao' })
   declare dataConclusao: Date | null;
 
-  @DeletedAt @Column(DataType.DATE(3))
+  @DeletedAt
+  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
   declare deletedAt: Date | null;
 }
