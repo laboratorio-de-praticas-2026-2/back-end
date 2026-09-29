@@ -75,6 +75,9 @@ export class Obrigacao extends Model<Obrigacao> {
   declare createdAt: Date;
 
   @DeletedAt
-  @Column(DataType.DATE(3))
+  @Column({
+    type: DataType.DATE(3),
+    field: 'deleted_at',
+  })
   declare deletedAt: Date | null;
 }

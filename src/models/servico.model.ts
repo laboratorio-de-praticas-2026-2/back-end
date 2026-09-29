@@ -28,6 +28,10 @@ export class Servico extends Model<Servico> {
   @Default(true) @AllowNull(false) @Column(DataType.BOOLEAN)
   declare ativo: boolean;
 
-  @DeletedAt @Column(DataType.DATE(3))
+  @DeletedAt
+  @Column({
+    type: DataType.DATE(3),
+    field: 'deleted_at',
+  })
   declare deletedAt: Date | null;
 }
