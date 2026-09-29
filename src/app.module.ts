@@ -11,6 +11,7 @@ import { BlogModule } from './modules/blog/blog.module.js';
 import { FaqModule } from './modules/faq/faq.module.js';
 import { Blog } from './models/blog.model.js';
 import { Faq } from './models/faq.model.js';
+import { ChatModule } from './modules/chat/chat.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -26,6 +27,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         dialect: configService.get<string>('DB_DIALECT') as 'mysql',
+        autoLoadModels: true,
         host: configService.get<string>('DB_HOST'),
         port: Number(configService.get<string>('DB_PORT')),
         username: configService.get<string>('DB_USER'),
@@ -46,6 +48,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     MensagemModule,
     BlogModule,
     FaqModule,
+    ChatModule,
     DashboardModule,
   ],
   controllers: [AppController],
