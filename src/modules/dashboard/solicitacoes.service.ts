@@ -55,11 +55,6 @@ export class SolicitacoesService {
       tempoMedioGeralDias: tempoMedio.geral,
     };
   }
- 
-
-// Agrupa as solicitações criadas no período pelo status atual e calcula
-// os percentuais do gráfico + a taxa de cancelamento.
-// Uma única consulta agregada (GROUP BY status) — sem loop por registro.
 
   private async getGraficoStatus(periodo: PeriodoFiltro) {
     const rows = (await this.solicitacaoModel.findAll({
@@ -105,11 +100,6 @@ export class SolicitacoesService {
         totalComCanceladas === 0 ? 0 : round2((nCanceladas / totalComCanceladas) * 100),
     };
   }
- 
-  
-// Considera solicitações criadas no período, não concluídas nem canceladas,
-// e calcula a data limite (calendário local) a partir do prazo do serviço.
-
 
   private async getPrazos(periodo: PeriodoFiltro) {
     const solicitacoes = await this.solicitacaoModel.findAll({
@@ -129,6 +119,7 @@ export class SolicitacoesService {
           as: 'servico',
           attributes: ['prazoEstimadoDias'],
           required: true,
+          paranoid: false,
         },
       ],
     });
@@ -157,10 +148,6 @@ export class SolicitacoesService {
  
     return { proximasDeVencer, foraDoPrazo };
   }
- 
-// Considera solicitações atualmente concluídas com dataConclusao no período.
-// Soma/quantidade são acumuladas com precisão decimal; o arredondamento
-// ocorre apenas no resultado final.
 
   private async getTempoMedio(periodo: PeriodoFiltro) {
     const solicitacoes = await this.solicitacaoModel.findAll({
@@ -178,6 +165,7 @@ export class SolicitacoesService {
           as: 'servico',
           attributes: ['id', 'nome'],
           required: true,
+          paranoid: false,
         },
       ],
     });
@@ -220,14 +208,7 @@ export class SolicitacoesService {
  
     return { porServico: tempoMedioPorServicoDias, geral: tempoMedioGeralDias };
   }
- 
-  /**
-   * Saldo de parcelas de honorários (mensalidade/serviço avulso) não pagas,
-   * vinculadas a solicitações do período. Resolvido em duas consultas agregadas:
-   *  1) obrigações elegíveis vinculadas às solicitações do período;
-   *  2) soma das parcelas (ativo/atrasado) dessas obrigações — cada parcela conta
-   *     uma única vez, mesmo que a obrigação esteja ligada a mais de uma solicitação.
-   */
+
   private async getTotalCreditosAberto(periodo: PeriodoFiltro): Promise<number> {
     const obrigacaoRows = (await this.obrigacaoServicoModel.findAll({
       attributes: ['obrigacaoId'],

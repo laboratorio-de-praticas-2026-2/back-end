@@ -1,10 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { SolicitacoesService } from './solicitacoes.service.js';
-// import { AdminGuard } from '../../commons/guards/admin.guard.js';
+import { AdminGuard } from '../../commons/guards/admin.guard.js';
 
 
 @Controller('dashboard/solicitacoes')
-// @UseGuards(AdminGuard)
+@UseGuards(AdminGuard)
 export class SolicitacoesController {
     constructor (private readonly solicitacoesService: SolicitacoesService) {}
 

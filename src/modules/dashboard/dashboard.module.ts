@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SequelizeModule } from '@nestjs/sequelize';
 import { FinanceiroController } from './financeiro.controller.js';
 import { FinanceiroService } from './financeiro.service.js';
 import { ClientesController } from './clientes.controller.js';
@@ -13,8 +14,18 @@ import { ServicosController } from './servicos.controller.js';
 import { ServicosService } from './servicos.service.js';
 import { GeralController } from './geral.controller.js';
 import { GeralService } from './geral.service.js';
+import { Solicitacao } from '../../models/solicitacao.model.js';
+import { DocumentoSolicitacao } from '../../models/documento-solicitacao.model.js';
+import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
+import { Parcela } from '../../models/parcela.model.js';
 
 @Module({
+  imports: [
+    // Models injetados (@InjectModel) por SolicitacoesService e DocumentosService.
+    // Servico, Obrigacao e Pagamento só aparecem em `include`, mas precisam estar
+    // registrados na conexão principal (SequelizeModule.forRoot).
+    SequelizeModule.forFeature([Solicitacao, DocumentoSolicitacao, ObrigacaoServico, Parcela]),
+  ],
   controllers: [
     FinanceiroController,
     ClientesController,
@@ -22,7 +33,7 @@ import { GeralService } from './geral.service.js';
     DocumentosController,
     FiscalController,
     ServicosController,
-    GeralController
+    GeralController,
   ],
   providers: [
     FinanceiroService,
@@ -31,7 +42,7 @@ import { GeralService } from './geral.service.js';
     DocumentosService,
     FiscalService,
     ServicosService,
-    GeralService
+    GeralService,
   ],
 })
 export class DashboardModule {}

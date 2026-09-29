@@ -6,7 +6,7 @@ import { Solicitacao } from '../../models/solicitacao.model.js';
 import { StatusSolicitacaoEnum } from '../../commons/enums/status-solicitacao.enum.js';
 import { StatusValidacaoDocumentoEnum } from '../../commons/enums/status-validacao-documento.enum.js';
 import { PeriodoFiltro, resolvePeriodo } from '../../commons/utils/periodo-filtro.util.js';
- 
+
 @Injectable()
 export class DocumentosService {
   constructor(
@@ -26,11 +26,7 @@ export class DocumentosService {
  
     return { cards, travadasPorFaltaDeDocumento };
   }
- 
-  /**
-   * `recebidos`/`processados`/`incorretos` usam DocumentoSolicitacao.dataUpload;
-   * `processosParados` usa Solicitacao.dataSolicitacao (tabela e data diferentes).
-   */
+
   private async getCards(periodo: PeriodoFiltro) {
     const rows = (await this.documentoModel.findAll({
       attributes: ['statusValidacao', [fn('COUNT', col('DocumentoSolicitacao.id')), 'quantidade']],
@@ -50,7 +46,7 @@ export class DocumentosService {
           required: true, // garante que a solicitação não esteja deletada (paranoid)
         },
       ],
-      group: ['DocumentoSolicitacao.statusValidacao'],
+      group: [col('DocumentoSolicitacao.status_validacao')],
       raw: true,
     })) as unknown as { statusValidacao: StatusValidacaoDocumentoEnum; quantidade: string }[];
  
@@ -75,17 +71,13 @@ export class DocumentosService {
  
     return { recebidos, processados, incorretos, processosParados };
   }
- 
-  /**
-   * Pendência = documento nunca enviado (nomeHash e dataUpload nulos) OU rejeitado
-   * (exigindo reenvio), pertencente a uma solicitação atualmente `aguardando_documento`
-   * criada no período. Cada solicitação conta uma única vez por tipo, mesmo que
-   * existam múltiplos registros de pendência do mesmo tipo para ela.
-   */
+
   private async getTravadasPorFaltaDeDocumento(periodo: PeriodoFiltro) {
     const rows = (await this.documentoModel.findAll({
       attributes: ['tipoDocumento', 'solicitacaoId'],
       where: {
+        // registros sem tipo não entram no gráfico (a coluna aceita nulo)
+        tipoDocumento: { [Op.ne]: null },
         [Op.or]: [
           { nomeHash: null, dataUpload: null },
           { statusValidacao: StatusValidacaoDocumentoEnum.REJEITADO },
