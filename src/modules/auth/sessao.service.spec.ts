@@ -1,7 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from '../../commons/auth.service.js';
 import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
-import { hashSenha } from './password.util.js';
+import { PasswordService } from '../../commons/password.service.js';
 import {
   MENSAGEM_CREDENCIAIS_INVALIDAS,
   SessaoService,
@@ -26,22 +26,24 @@ describe('SessaoService', () => {
   const envOriginal = { ...process.env };
   let sessao: SessaoService;
   let auth: AuthService;
+  let senhas: PasswordService;
   let denylist: TokenDenylistService;
   let hash: string;
 
   beforeAll(async () => {
-    hash = await hashSenha('Senha@123');
+    hash = await new PasswordService().hash('Senha@123');
   });
 
   beforeEach(() => {
     process.env.JWT_SECRET = 'segredo-de-teste-com-mais-de-32-caracteres';
     auth = new AuthService();
+    senhas = new PasswordService();
     denylist = new TokenDenylistService();
     const repo = new RepositorioFake([
       { id: 1, nome: 'Ana', email: 'ana@teste.com', senhaHash: hash, nivel: NivelUsuarioEnum.cliente },
       { id: 2, nome: 'Admin', email: 'admin@teste.com', senhaHash: hash, nivel: NivelUsuarioEnum.administrador },
     ]);
-    sessao = new SessaoService(repo, auth, denylist);
+    sessao = new SessaoService(repo, auth, senhas, denylist);
   });
 
   afterEach(() => {

@@ -1,5 +1,8 @@
 import { Global, Module } from '@nestjs/common';
+import { SequelizeModule } from '@nestjs/sequelize';
 import { AuthService } from '../../commons/auth.service.js';
+import { PasswordService } from '../../commons/password.service.js';
+import { Usuario } from '../../models/usuario.model.js';
 import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './guards/auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
@@ -16,9 +19,11 @@ import {
  */
 @Global()
 @Module({
+  imports: [SequelizeModule.forFeature([Usuario])],
   controllers: [AuthController],
   providers: [
     AuthService,
+    PasswordService,
     TokenDenylistService,
     SessaoService,
     AuthGuard,

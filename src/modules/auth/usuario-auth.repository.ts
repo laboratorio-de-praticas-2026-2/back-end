@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/sequelize';
-import { QueryTypes, Sequelize } from 'sequelize';
+import { InjectModel } from '@nestjs/sequelize';
+import { Usuario } from '../../models/usuario.model.js';
 import type { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
 
 /** Usuário como o login o enxerga (inclui o hash; nunca sai pela API). */
@@ -19,42 +19,42 @@ export interface UsuarioAuthRepository {
 
 export const USUARIO_AUTH_REPOSITORY = 'USUARIO_AUTH_REPOSITORY';
 
+function paraUsuarioAuth(usuario: Usuario): UsuarioAuth {
+  return {
+    id: usuario.id,
+    nome: usuario.nome,
+    email: usuario.email,
+    senhaHash: usuario.senha,
+    nivel: usuario.nivel,
+  };
+}
+
 /**
- * ATENÇÃO: nomes de tabela/colunas abaixo são uma SUPOSIÇÃO enquanto a
- * estrutura definitiva de `Usuario` (issues de Cadastro PF/PJ) não existe.
- * Ajuste só este objeto quando o schema for definido.
+ * Usa o model `Usuario` (`src/models/usuario.model.ts`) — o mesmo model do
+ * Cadastro PF (#50) e da listagem/edição de usuários (Administração) — para
+ * que o login enxergue exatamente os mesmos usuários e o mesmo hash de senha
+ * que o cadastro grava. Não deve existir outro model/tabela de usuário.
  */
-const USUARIOS = {
-  tabela: 'usuarios',
-  id: 'id',
-  nome: 'nome',
-  email: 'email',
-  senhaHash: 'senha',
-  nivel: 'nivel',
-} as const;
-
-const COLUNAS_SELECT = `${USUARIOS.id} AS id, ${USUARIOS.nome} AS nome, ${USUARIOS.email} AS email, ${USUARIOS.senhaHash} AS senhaHash, ${USUARIOS.nivel} AS nivel`;
-
 @Injectable()
 export class SequelizeUsuarioAuthRepository implements UsuarioAuthRepository {
-  constructor(@InjectConnection() private readonly sequelize: Sequelize) {}
+  constructor(
+    @InjectModel(Usuario) private readonly usuarioModel: typeof Usuario,
+  ) {}
 
   async buscarPorEmail(email: string): Promise<UsuarioAuth | null> {
-    return this.buscarUm(`${USUARIOS.email} = :valor`, email);
+    // deletedAt não é gerenciado como "paranoid" pelo Sequelize aqui (é só
+    // uma coluna), então o filtro precisa ser explícito: usuário com soft
+    // delete não deve conseguir logar.
+    const usuario = await this.usuarioModel.findOne({
+      where: { email, deletedAt: null },
+    });
+    return usuario ? paraUsuarioAuth(usuario) : null;
   }
 
   async buscarPorId(id: number): Promise<UsuarioAuth | null> {
-    return this.buscarUm(`${USUARIOS.id} = :valor`, id);
-  }
-
-  private async buscarUm(
-    condicao: string,
-    valor: string | number,
-  ): Promise<UsuarioAuth | null> {
-    const linhas = await this.sequelize.query<UsuarioAuth>(
-      `SELECT ${COLUNAS_SELECT} FROM ${USUARIOS.tabela} WHERE ${condicao} LIMIT 1`,
-      { replacements: { valor }, type: QueryTypes.SELECT },
-    );
-    return linhas[0] ?? null;
+    const usuario = await this.usuarioModel.findOne({
+      where: { id, deletedAt: null },
+    });
+    return usuario ? paraUsuarioAuth(usuario) : null;
   }
 }
