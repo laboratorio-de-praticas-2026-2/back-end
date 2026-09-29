@@ -29,25 +29,36 @@ export class ServicosService {
     private readonly obrigacaoModel: typeof Obrigacao,
     @InjectModel(ObrigacaoServico)
     private readonly obrigacaoServicoModel: typeof ObrigacaoServico,
-  ) {}
+  ) { }
 
   async getIndicadores(startDate?: string, endDate?: string) {
     const { start, endExclusive } = resolvePeriodo(startDate, endDate);
 
+    const inicioData = start.toISOString().slice(0, 10);
+    const fimDataExclusivo = endExclusive.toISOString().slice(0, 10);
+
+    const inicioHorario = new Date(`${inicioData}T00:00:00-03:00`);
+    const fimHorario = new Date(`${fimDataExclusivo}T00:00:00-03:00`);
+
     // 1. Status do catalogo
     const [ativos, pausados] = await Promise.all([
-      this.servicoModel.count({ where: { ativo: true } }),
-      this.servicoModel.count({ where: { ativo: false } }),
+      this.servicoModel.count({
+        where: { ativo: true, deletedAt: null },
+      }),
+      this.servicoModel.count({
+        where: { ativo: false, deletedAt: null },
+      }),
     ]);
 
     // 2. Faturamento: parcelas pagas no periodo
     const parcelasPagas = await this.parcelaModel.findAll({
       where: {
+        deletedAt: null,
         status: StatusParcela.PAGO,
         dataPagamento: {
           [Op.ne]: null,
-          [Op.gte]: start,
-          [Op.lt]: endExclusive,
+          [Op.gte]: inicioData,
+          [Op.lt]: fimDataExclusivo,
         },
       },
     });
@@ -56,41 +67,46 @@ export class ServicosService {
 
     const pagamentos = idsPagamentos.length
       ? await this.pagamentoModel.findAll({
-          where: { id: { [Op.in]: idsPagamentos } },
-        })
+        where: {
+          id: { [Op.in]: idsPagamentos },
+          deletedAt: null,
+        },
+      })
       : [];
 
     const idsObrigacoes = pagamentos.map((p) => p.idObrigacao);
 
     const obrigacoes = idsObrigacoes.length
       ? await this.obrigacaoModel.findAll({
-          where: {
-            id: { [Op.in]: idsObrigacoes },
-            tipo: TipoObrigacao.SERVICO,
-            naturezaCobranca: {
-              [Op.in]: [
-                NaturezaCobranca.MENSALIDADE,
-                NaturezaCobranca.SERVICO_AVULSO,
-              ],
-            },
+        where: {
+          id: { [Op.in]: idsObrigacoes },
+          deletedAt: null,
+          tipo: TipoObrigacao.SERVICO,
+          naturezaCobranca: {
+            [Op.in]: [
+              NaturezaCobranca.MENSALIDADE,
+              NaturezaCobranca.SERVICO_AVULSO,
+            ],
           },
-        })
+        },
+      })
       : [];
 
     const idsObrigacoesValidas = obrigacoes.map((o) => o.id);
 
     const obrigacaoServicos = idsObrigacoesValidas.length
       ? await this.obrigacaoServicoModel.findAll({
-          where: { idObrigacao: { [Op.in]: idsObrigacoesValidas } },
-        })
+        where: { idObrigacao: { [Op.in]: idsObrigacoesValidas } },
+      })
       : [];
 
     const idsServicos = obrigacaoServicos.map((os) => os.idServico);
 
     const servicos = idsServicos.length
       ? await this.servicoModel.findAll({
-          where: { id: { [Op.in]: idsServicos } },
-        })
+        where: { id: { [Op.in]: idsServicos } },
+        paranoid: false,
+      })
       : [];
 
     const pagamentoPorId = new Map(pagamentos.map((p) => [p.id, p]));
@@ -134,8 +150,12 @@ export class ServicosService {
     // 3. Demandas
     const solicitacoes = await this.solicitacaoModel.findAll({
       where: {
+        deletedAt: null,
         status: { [Op.ne]: StatusSolicitacao.CANCELADO },
-        dataSolicitacao: { [Op.gte]: start, [Op.lt]: endExclusive },
+        dataSolicitacao: {
+          [Op.gte]: inicioHorario,
+          [Op.lt]: fimHorario,
+        },
       },
     });
 
@@ -143,8 +163,9 @@ export class ServicosService {
 
     const servicosDemanda = idsServicosDemanda.length
       ? await this.servicoModel.findAll({
-          where: { id: { [Op.in]: idsServicosDemanda } },
-        })
+        where: { id: { [Op.in]: idsServicosDemanda } },
+        paranoid: false,
+      })
       : [];
 
     const servicoDemandaPorId = new Map(servicosDemanda.map((s) => [s.id, s]));

@@ -25,17 +25,24 @@ export class FiscalService {
     private readonly pagamentoModel: typeof Pagamento,
     @InjectModel(Parcela)
     private readonly parcelaModel: typeof Parcela,
-  ) {}
+  ) { }
 
   async getIndicadores(startDate?: string, endDate?: string) {
     const { start, endExclusive } = resolvePeriodo(startDate, endDate);
+    const inicioData = start.toISOString().slice(0, 10);
+    const fimDataExclusivo = endExclusive.toISOString().slice(0, 10);
     const hoje = getHojeSP();
 
     // 1. Busca obrigacoes de tributo com vencimento no periodo
     const obrigacoes = await this.obrigacaoModel.findAll({
       where: {
+        deletedAt: null,
         naturezaCobranca: NaturezaCobranca.TRIBUTO,
-        vencimento: { [Op.ne]: null, [Op.gte]: start, [Op.lt]: endExclusive },
+        vencimento: {
+          [Op.ne]: null,
+          [Op.gte]: inicioData,
+          [Op.lt]: fimDataExclusivo,
+        },
       },
     });
 
@@ -44,8 +51,9 @@ export class FiscalService {
     // 2. Busca pagamentos das obrigacoes
     const pagamentos = idsObrigacoes.length
       ? await this.pagamentoModel.findAll({
-          where: { idObrigacao: { [Op.in]: idsObrigacoes } },
-        })
+        where: { idObrigacao: { [Op.in]: idsObrigacoes } },
+        paranoid: false,
+      })
       : [];
 
     const idsPagamentos = pagamentos.map((p) => p.id);
@@ -53,8 +61,11 @@ export class FiscalService {
     // 3. Busca parcelas dos pagamentos
     const parcelas = idsPagamentos.length
       ? await this.parcelaModel.findAll({
-          where: { idPagamento: { [Op.in]: idsPagamentos } },
-        })
+        where: {
+          idPagamento: { [Op.in]: idsPagamentos },
+          deletedAt: null,
+        },
+      })
       : [];
 
     // 4. Indexa para lookup O(1)
@@ -126,6 +137,13 @@ export class FiscalService {
     hoje: Date,
   ): number {
     const venc = ob.vencimento ? new Date(ob.vencimento) : null;
+
+    if (pagamento?.deletedAt) {
+      this.logger.warn(
+        `Pagamento ${pagamento.id} excluído (Obrigação ${ob.id}). Revisar.`,
+      );
+      return 0;
+    }
 
     if (!pagamento) {
       if (!venc || venc >= hoje) return 0;
