@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
 import { CriarAgendamentoDto } from './dto/criar-agendamento.dto.js';
+import { DisparoAgendamentoService } from './disparo/disparo.service.js';
 
 export class TipoAtendimento {
   id: number;
@@ -44,6 +45,9 @@ export interface HorariosDisponiveisResponse {
 
 @Injectable()
 export class AgendamentoService {
+  constructor(
+    private readonly disparoService: DisparoAgendamentoService,
+  ) {}
   private tiposAtendimento: TipoAtendimento[] = [
     {
       id: 1,
@@ -262,6 +266,12 @@ export class AgendamentoService {
 
     this.agendamentos.push(novoAgendamento);
 
+    this.disparoService.enviarConfirmacao(novoAgendamento.cliente, {
+      protocolo: novoAgendamento.protocolo,
+      data_agendamento: novoAgendamento.data_agendamento,
+      horario: novoAgendamento.horario,
+    }).catch(err => console.error('Erro ao enviar e-mail de confirmação:', err));
+
     return {
       message: 'Agendamento realizado com sucesso',
       agendamento: {
@@ -270,6 +280,53 @@ export class AgendamentoService {
         protocolo: novoAgendamento.protocolo,
         data_agendamento: `${novoAgendamento.data_agendamento}T${novoAgendamento.horario}:00Z`,
       },
+    };
+  }
+
+  atualizarAgendamento(id: number, dto: { status: string; nova_data?: string; novo_horario?: string; motivo?: string }) {
+    const agendamento = this.agendamentos.find(
+      (agendamentoAtual) => agendamentoAtual.id === id,
+    );
+
+    if (!agendamento) {
+      throw new NotFoundException('Agendamento não encontrado.');
+    }
+
+    if (dto.status === 'remarcado' || (dto.nova_data && dto.novo_horario)) {
+      if (!dto.nova_data || !dto.novo_horario) {
+        throw new BadRequestException('Nova data e novo horário são obrigatórios para remarcação.');
+      }
+
+      const horarioOcupado = this.agendamentos.find((a) =>
+          a.id !== id &&
+          a.data_agendamento === dto.nova_data &&
+          a.horario === dto.novo_horario &&
+          a.status !== 'cancelado',
+      );
+
+      if (horarioOcupado) {
+        throw new ConflictException({
+          error: 'HORARIO_INDISPONIVEL',
+          message: 'O novo horário selecionado já está ocupado. Escolha outro horário.',
+        });
+      }
+
+      agendamento.data_agendamento = dto.nova_data;
+      agendamento.horario = dto.novo_horario;
+      agendamento.status = 'remarcado';
+    } else {
+      agendamento.status = dto.status;
+    }
+
+    this.disparoService.enviarNotificacao(agendamento.cliente, {
+      protocolo: agendamento.protocolo,
+      status: agendamento.status,
+      data_agendamento: agendamento.data_agendamento,
+      horario: agendamento.horario,
+    }).catch(err => console.error('Erro ao enviar e-mail de notificação:', err));
+    return {
+      message: 'Agendamento atualizado com sucesso',
+      status: agendamento.status,
     };
   }
 

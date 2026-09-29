@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { AgendamentoService } from './agendamento.service.js';
 import { CriarTipoAtendimentoDto } from './dto/criar-tipo-atendimento.dto.js';
 import { CriarAgendamentoDto } from './dto/criar-agendamento.dto.js';
 import { ConsultarHorariosDisponiveisDto } from './dto/consultar-horarios-disponiveis.dto.js';
+import { AtualizarAgendamentoDto } from './dto/atualizar-agendamento.dto.js';
 
 @Controller()
 export class AgendamentoController {
@@ -63,7 +65,16 @@ export class AgendamentoController {
   horariosDisponiveis(@Query() query: ConsultarHorariosDisponiveisDto) {
     return this.agendamentoService.listarHorariosDisponiveis(
       query.data,
-      Number(query.tipo_atendimento_id),
+      Number(query.tipo_atendimento_id)
     );
+  }
+
+  @Patch('agendamentos/:id')
+  @HttpCode(HttpStatus.OK)
+  atualizarAgendamento(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: AtualizarAgendamentoDto,
+  ) {
+    return this.agendamentoService.atualizarAgendamento(id, body); 
   }
 }
