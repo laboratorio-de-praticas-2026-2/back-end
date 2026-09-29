@@ -5,12 +5,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { ContatoController } from './contato.controller.js';
 import { ContatoService } from './contato.service.js';
 import { AuthService } from '../../commons/auth.service.js';
-
-import { Usuario } from './entities/usuario.entity.js';
-import { Empresa } from './entities/empresa.entity.js';
-
-import { AuthGuard } from '../auth/guards/auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 
 describe('ContatoController & ContatoService', () => {
   let controller: ContatoController;
@@ -70,25 +65,8 @@ describe('ContatoController & ContatoService', () => {
           provide: AuthService,
           useValue: {},
         },
-        {
-          provide: getModelToken(Usuario),
-          useValue: usuarioModelMock,
-        },
-        {
-          provide: getModelToken(Empresa),
-          useValue: empresaModelMock,
-        },
       ],
-    })
-      .overrideGuard(AuthGuard)
-      .useValue({
-        canActivate: () => true,
-      })
-      .overrideGuard(RolesGuard)
-      .useValue({
-        canActivate: () => true,
-      })
-      .compile();
+    }).compile();
 
     controller = module.get<ContatoController>(ContatoController);
     service = module.get<ContatoService>(ContatoService);
@@ -107,79 +85,46 @@ describe('ContatoController & ContatoService', () => {
       celular: '11999998888',
       razaoSocial: 'Empresa de Teste LTDA',
       nomeFantasia: 'Teste Soluções',
-      cnpj: '11.222.333/0001-81',
+      cnpj: '12.345.678/0001-90',
       regimeTributario: 'simples_nacional',
     };
 
     it('deve cadastrar um cliente PJ com sucesso', async () => {
       const resultado = await service.cadastrarPj(payloadValido as any);
 
-      expect(resultado).toHaveProperty(
-        'mensagem',
-        'Cadastro PJ realizado com sucesso.',
-      );
+      expect(resultado).toHaveProperty('mensagem', 'Cadastro PJ realizado com sucesso.');
       expect(resultado.usuario).toHaveProperty('id');
       expect(resultado.usuario).not.toHaveProperty('senha');
-      expect(resultado.empresa.cnpj).toBe('11222333000181');
+      expect(resultado.empresa.cnpj).toBe('12345678000190');
     });
 
     it('deve rejeitar e-mail com formato inválido', async () => {
-      const dtoInvalido = {
-        ...payloadValido,
-        email: 'email_invalido',
-      };
-
-      await expect(
-        service.cadastrarPj(dtoInvalido as any),
-      ).rejects.toThrow(BadRequestException);
+      const dtoInvalido = { ...payloadValido, email: 'email_invalido' };
+      await expect(service.cadastrarPj(dtoInvalido as any)).rejects.toThrow(BadRequestException);
     });
 
     it('deve rejeitar CNPJ com formato inválido', async () => {
-      const dtoInvalido = {
-        ...payloadValido,
-        cnpj: '123',
-      };
-
-      await expect(
-        service.cadastrarPj(dtoInvalido as any),
-      ).rejects.toThrow(BadRequestException);
+      const dtoInvalido = { ...payloadValido, cnpj: '123' };
+      await expect(service.cadastrarPj(dtoInvalido as any)).rejects.toThrow(BadRequestException);
     });
 
     it('deve rejeitar CPF/CNPJ do responsável com formato inválido', async () => {
-      const dtoInvalido = {
-        ...payloadValido,
-        cpf_cnpj: '123',
-      };
-
-      await expect(
-        service.cadastrarPj(dtoInvalido as any),
-      ).rejects.toThrow(BadRequestException);
+      const dtoInvalido = { ...payloadValido, cpf_cnpj: '123' };
+      await expect(service.cadastrarPj(dtoInvalido as any)).rejects.toThrow(BadRequestException);
     });
 
     it('deve rejeitar e-mail duplicado', async () => {
       await service.cadastrarPj(payloadValido as any);
+      const dtoDuplicado = { ...payloadValido, cnpj: '98.765.432/0001-10' };
 
-      const dtoDuplicado = {
-        ...payloadValido,
-        cnpj: '45.678.901/0001-75',
-      };
-
-      await expect(
-        service.cadastrarPj(dtoDuplicado as any),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.cadastrarPj(dtoDuplicado as any)).rejects.toThrow(ConflictException);
     });
 
     it('deve rejeitar CNPJ duplicado', async () => {
       await service.cadastrarPj(payloadValido as any);
+      const dtoDuplicado = { ...payloadValido, email: 'outro.email@exemplo.com' };
 
-      const dtoDuplicado = {
-        ...payloadValido,
-        email: 'outro.email@exemplo.com',
-      };
-
-      await expect(
-        service.cadastrarPj(dtoDuplicado as any),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.cadastrarPj(dtoDuplicado as any)).rejects.toThrow(ConflictException);
     });
   });
 });

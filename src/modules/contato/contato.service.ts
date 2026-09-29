@@ -39,14 +39,12 @@ export class ContatoService {
   }
 
   private validarCnpj(cnpj: string): boolean {
-    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$|^\d{14}$/.test(cnpj);
+    return /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$\vert{}^\d{14}$/.test(cnpj);
   }
 
   private validarCpfCnpj(doc: string): boolean {
-    if (!doc) return true;
-
+    if (!doc) return true; 
     const numeros = doc.replace(/\D/g, '');
-
     return numeros.length === 11 || numeros.length === 14;
   }
 
@@ -56,9 +54,7 @@ export class ContatoService {
 
   async cadastrarPj(dto: CadastroPjDto) {
     if (!dto.nome || !dto.email || !dto.senha || !dto.razaoSocial || !dto.cnpj) {
-      throw new BadRequestException(
-        'Preencha os campos obrigatórios (nome, e-mail, senha, razão social e CNPJ).',
-      );
+      throw new BadRequestException('Preencha os campos obrigatórios (nome, e-mail, senha, razão social e CNPJ).');
     }
 
     if (!this.validarEmail(dto.email)) {
@@ -70,39 +66,26 @@ export class ContatoService {
     }
 
     if (dto.cpf_cnpj && !this.validarCpfCnpj(dto.cpf_cnpj)) {
-      throw new BadRequestException(
-        'Formato de CPF/CNPJ do responsável inválido.',
-      );
+      throw new BadRequestException('Formato de CPF/CNPJ do responsável inválido.');
     }
 
     const cnpjLimpo = dto.cnpj.replace(/\D/g, '');
-    const cpfCnpjRespLimpo = dto.cpf_cnpj
-      ? dto.cpf_cnpj.replace(/\D/g, '')
-      : null;
+    const cpfCnpjRespLimpo = dto.cpf_cnpj ? dto.cpf_cnpj.replace(/\D/g, '') : null;
 
     // 1. Busca no Banco de Dados via Sequelize
-    const emailExiste = await this.usuarioModel.findOne({
-      where: { email: dto.email },
-    });
-
+    const emailExiste = await this.usuarioModel.findOne({ where: { email: dto.email } });
     if (emailExiste) {
       throw new ConflictException('E-mail já cadastrado.');
     }
 
-    const cnpjExiste = await this.empresaModel.findOne({
-      where: { cnpj: cnpjLimpo },
-    });
-
+    const cnpjExiste = await this.empresaModel.findOne({ where: { cnpj: cnpjLimpo } });
     if (cnpjExiste) {
       throw new ConflictException('CNPJ já cadastrado.');
     }
 
     // 2. Hash seguro de senha usando o módulo nativo crypto (pbkdf2)
     const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto
-      .pbkdf2Sync(dto.senha, salt, 1000, 64, 'sha512')
-      .toString('hex');
-
+    const hash = crypto.pbkdf2Sync(dto.senha, salt, 1000, 64, 'sha512').toString('hex');
     const senhaHash = `${salt}:${hash}`;
 
     // 3. Persistência real no Banco de Dados via Sequelize
@@ -127,7 +110,6 @@ export class ContatoService {
     });
 
     const usuarioPlain = novoUsuario.get({ plain: true });
-
     delete usuarioPlain.senha;
 
     return {
