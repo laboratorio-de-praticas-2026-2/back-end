@@ -1,4 +1,16 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
+import { SolicitacoesService } from './solicitacoes.service.js';
 
-@Controller('solicitacoes')
-export class SolicitacoesController {}
+
+@Controller('dashboard/solicitacoes')
+export class SolicitacoesController {
+    constructor (private readonly solicitacoesService: SolicitacoesService) {}
+
+    @Get()
+    async getIndicadores(
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.solicitacoesService.getIndicadores(startDate, endDate);
+    }
+}

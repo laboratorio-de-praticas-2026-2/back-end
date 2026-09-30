@@ -1,7 +1,11 @@
 import {
   Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
-  AllowNull, Default, DeletedAt,
+  AllowNull, Default, DeletedAt, UpdatedAt, HasMany, BelongsTo, ForeignKey
 } from 'sequelize-typescript';
+import { Servico } from './servico.model.js';
+import { DocumentoSolicitacao } from './documento-solicitacao.model.js';
+import { ObrigacaoServico } from './obrigacao-servico.model.js';
+import type { NonAttribute } from 'sequelize';
 
 export enum StatusSolicitacao {
   RECEBIDO = 'recebido',
@@ -14,8 +18,10 @@ export enum StatusSolicitacao {
 
 @Table({
   tableName: 'solicitacao',
-  timestamps: false,
+  timestamps: true,
   paranoid: true,
+  createdAt: false,
+  updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
 export class Solicitacao extends Model<Solicitacao> {
@@ -30,6 +36,7 @@ export class Solicitacao extends Model<Solicitacao> {
   @Column({ type: DataType.INTEGER, field: 'empresa_id' })
   declare empresaId: number | null;
 
+  @ForeignKey(() => Servico)
   @AllowNull(false)
   @Column({ type: DataType.INTEGER, field: 'servico_id' })
   declare servicoId: number;
@@ -48,16 +55,27 @@ export class Solicitacao extends Model<Solicitacao> {
   declare observacaoAdmin: string | null;
 
   @AllowNull(false)
-  @Column({ type: DataType.DATE(3), field: 'data_solicitacao' })
+  @Column({ type: DataType.DATE, defaultValue: DataType.NOW, field: 'data_solicitacao' })
   declare dataSolicitacao: Date;
 
   @AllowNull(true)
-  @Column({ type: DataType.DATE(3), field: 'data_conclusao' })
+  @Column({ type: DataType.DATE, field: 'data_conclusao' })
   declare dataConclusao: Date | null;
 
-  @DeletedAt @Column({
-    type: DataType.DATE(3),
-    field: 'deleted_at',
-  })
+  @UpdatedAt
+  @Column({ type: DataType.DATE, field: 'updated_at' })
+  declare updatedAt: Date;
+
+  @DeletedAt
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
+
+  @BelongsTo(() => Servico, 'servicoId')
+  declare servico: NonAttribute<Servico>;
+
+  @HasMany(() => DocumentoSolicitacao, 'solicitacaoId')
+  declare documentos: DocumentoSolicitacao[];
+
+  @HasMany(() => ObrigacaoServico, 'solicitacaoId')
+  declare obrigacaoServico: ObrigacaoServico[];
 }

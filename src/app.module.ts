@@ -9,16 +9,16 @@ import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 
-// Models Sequelize utilizados pelo Dashboard Geral
 import { Usuario } from './models/usuario.model.js';
 import { Empresa } from './models/empresa.model.js';
-import { Servico } from './models/servico.model.js';
-import { Solicitacao } from './models/solicitacao.model.js';
-import { Obrigacao } from './models/obrigacao.model.js';
 import { ObrigacaoEmpresa } from './models/obrigacao-empresa.model.js';
 import { ObrigacaoServico } from './models/obrigacao-servico.model.js';
+import { Obrigacao } from './models/obrigacao.model.js';
 import { Pagamento } from './models/pagamento.model.js';
 import { Parcela } from './models/parcela.model.js';
+import { Solicitacao } from './models/solicitacao.model.js';
+import { DocumentoSolicitacao } from './models/documento-solicitacao.model.js';
+import { Servico } from './models/servico.model.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -41,13 +41,14 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         models: [
           Usuario,
           Empresa,
-          Servico,
-          Solicitacao,
-          Obrigacao,
           ObrigacaoEmpresa,
           ObrigacaoServico,
+          Obrigacao,
           Pagamento,
           Parcela,
+          Solicitacao,
+          DocumentoSolicitacao,
+          Servico,
         ],
         synchronize: false,
         logging: false,
@@ -68,4 +69,4 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

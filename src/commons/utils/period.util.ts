@@ -6,39 +6,55 @@ export interface Periodo {
   endExclusive: Date;
 }
 
-/**
- * Resolve o período a ser usado nos dashboards.
- * - Sem parâmetros: do primeiro dia do mês atual até hoje (fuso America/Sao_Paulo)
- * - Com parâmetros: valida formato YYYY-MM-DD, valida ordem, retorna range [start, endExclusive)
- */
+export function parseDateSP(value: string): Date | null {
+  if (typeof value !== 'string') return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+
+  const [ano, mes, dia] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(ano, mes - 1, dia));
+
+  if (
+    date.getUTCFullYear() !== ano ||
+    date.getUTCMonth() !== mes - 1 ||
+    date.getUTCDate() !== dia
+  ) {
+    return null;
+  }
+  return date;
+}
+
+export function getHojeSP(): Date {
+  const now = new Date();
+  const spStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+  const sp = new Date(spStr);
+  return new Date(Date.UTC(sp.getFullYear(), sp.getMonth(), sp.getDate()));
+}
+
 export function resolvePeriodo(startDate?: string, endDate?: string): Periodo {
-  const incompleto =
-    (startDate === undefined) !== (endDate === undefined);
+  const incompleto = (startDate === undefined) !== (endDate === undefined);
   if (incompleto) {
-    throw new BadRequestException(
-      'startDate e endDate devem ser enviados juntos.',
-    );
+    throw new BadRequestException('startDate e endDate devem ser enviados juntos.');
   }
 
-  const hoje = getHojeSP();
+  let start: Date;
+  let end: Date;
 
   if (startDate === undefined && endDate === undefined) {
-    const primeiroDia = new Date(
-      Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1),
-    );
-    const endExclusive = new Date(hoje);
-    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-    return { start: primeiroDia, end: hoje, endExclusive };
+    end = getHojeSP();
+    start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+  } else {
+    const inicio = parseDateSP(startDate!);
+    const fim = parseDateSP(endDate!);
+
+    if (!inicio || !fim) {
+      throw new BadRequestException('Data inválida. Use o formato YYYY-MM-DD.');
+    }
+    start = inicio;
+    end = fim;
   }
 
-  const start = parseDateSP(startDate!);
-  const end = parseDateSP(endDate!);
-
-  if (!start || !end) {
-    throw new BadRequestException('Data inválida. Use o formato YYYY-MM-DD.');
-  }
   if (start > end) {
-    throw new BadRequestException('startDate é posterior a endDate.');
+    throw new BadRequestException('startDate não pode ser posterior a endDate.');
   }
 
   const endExclusive = new Date(end);
@@ -47,41 +63,6 @@ export function resolvePeriodo(startDate?: string, endDate?: string): Periodo {
   return { start, end, endExclusive };
 }
 
-/**
- * Converte 'YYYY-MM-DD' em Date UTC (calendário puro, sem shift de fuso).
- * Retorna null se o formato ou a data forem inválidos.
- */
-export function parseDateSP(value: string): Date | null {
-  if (typeof value !== 'string') return null; 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const [y, m, d] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  if (
-    date.getUTCFullYear() !== y ||
-    date.getUTCMonth() !== m - 1 ||
-    date.getUTCDate() !== d
-  ) {
-    return null;
-  }
-  return date;
-}
-
-/**
- * Retorna a data de "hoje" no fuso America/Sao_Paulo, representada em UTC
- * com horário zerado (calendário puro).
- */
-export function getHojeSP(): Date {
-  const now = new Date();
-  const spStr = now.toLocaleString('en-US', {
-    timeZone: 'America/Sao_Paulo',
-  });
-  const sp = new Date(spStr);
-  return new Date(Date.UTC(sp.getFullYear(), sp.getMonth(), sp.getDate()));
-}
-
-/**
- * Arredonda para 2 casas decimais (evita erro de floating point).
- */
 export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }

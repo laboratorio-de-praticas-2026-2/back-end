@@ -1,14 +1,10 @@
 import {
-  Table,
-  Column,
-  Model,
-  DataType,
-  PrimaryKey,
-  AutoIncrement,
-  AllowNull,
-  Default,
-  DeletedAt,
+  Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, HasOne
 } from 'sequelize-typescript';
+import { ObrigacaoServico } from './obrigacao-servico.model.js';
+import { Pagamento } from './pagamento.model.js';
+import type { NonAttribute } from 'sequelize';
 
 export enum TipoObrigacao {
   SERVICO = 'servico',
@@ -28,14 +24,14 @@ export enum NaturezaCobranca {
 
 @Table({
   tableName: 'obrigacao',
-  timestamps: false,
+  timestamps: true,
   paranoid: true,
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
 export class Obrigacao extends Model<Obrigacao> {
-  @PrimaryKey
-  @AutoIncrement
-  @Column(DataType.INTEGER)
+  @PrimaryKey @AutoIncrement @Column(DataType.INTEGER)
   declare id: number;
 
   @AllowNull(false)
@@ -44,17 +40,15 @@ export class Obrigacao extends Model<Obrigacao> {
 
   @AllowNull(true)
   @Column({
-    type: DataType.STRING(100),
+    type: DataType.ENUM(...Object.values(NaturezaCobranca)),
     field: 'natureza_cobranca',
   })
   declare naturezaCobranca: NaturezaCobranca | null;
 
-  @AllowNull(true)
-  @Column(DataType.TEXT)
+  @AllowNull(true) @Column(DataType.TEXT)
   declare descricao: string | null;
 
-  @AllowNull(false)
-  @Column(DataType.DECIMAL(10, 2))
+  @AllowNull(false) @Column(DataType.DECIMAL(10, 2))
   declare valor: number;
 
   @Default(StatusObrigacao.PENDENTE)
@@ -62,22 +56,28 @@ export class Obrigacao extends Model<Obrigacao> {
   @Column(DataType.ENUM(...Object.values(StatusObrigacao)))
   declare status: StatusObrigacao;
 
-  @AllowNull(true)
-  @Column(DataType.DATEONLY)
+  @AllowNull(true) @Column(DataType.DATEONLY)
   declare competencia: string | null;
 
-  @AllowNull(true)
-  @Column(DataType.DATEONLY)
+  @AllowNull(true) @Column(DataType.DATEONLY)
   declare vencimento: string | null;
 
+  @CreatedAt
   @AllowNull(false)
-  @Column({ type: DataType.DATE(3), field: 'created_at' })
+  @Column({ type: DataType.DATE, field: 'created_at' })
   declare createdAt: Date;
 
+  @UpdatedAt
+  @Column({ type: DataType.DATE, field: 'updated_at' })
+  declare updatedAt: Date;
+
   @DeletedAt
-  @Column({
-    type: DataType.DATE(3),
-    field: 'deleted_at',
-  })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
+
+  @HasOne(() => ObrigacaoServico, 'idObrigacao')
+  declare obrigacaoServico: NonAttribute<ObrigacaoServico>;
+
+  @HasOne(() => Pagamento, 'idObrigacao')
+  declare pagamento: NonAttribute<Pagamento>;
 }
