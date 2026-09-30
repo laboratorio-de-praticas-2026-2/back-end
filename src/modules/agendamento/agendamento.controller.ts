@@ -49,6 +49,15 @@ export class AgendamentoController {
     });
   }
 
+  @Get('agendamentos/horarios-disponiveis')
+  @HttpCode(HttpStatus.OK)
+  horariosDisponiveis(@Query() query: ConsultarHorariosDisponiveisDto) {
+    return this.agendamentoService.listarHorariosDisponiveis(
+      query.data,
+      Number(query.tipo_atendimento_id),
+    );
+  }
+
   @Get('agendamentos/:id')
   buscarAgendamento(@Param('id', ParseIntPipe) id: number) {
     return this.agendamentoService.buscarAgendamento(id);
@@ -60,21 +69,12 @@ export class AgendamentoController {
     return this.agendamentoService.criarAgendamento(body);
   }
 
-  @Get('agendamentos/horarios-disponiveis')
-  @HttpCode(HttpStatus.OK)
-  horariosDisponiveis(@Query() query: ConsultarHorariosDisponiveisDto) {
-    return this.agendamentoService.listarHorariosDisponiveis(
-      query.data,
-      Number(query.tipo_atendimento_id)
-    );
-  }
-
   @Patch('agendamentos/:id')
   @HttpCode(HttpStatus.OK)
   atualizarAgendamento(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: AtualizarAgendamentoDto,
   ) {
-    return this.agendamentoService.atualizarAgendamento(id, body); 
+    return this.agendamentoService.atualizarAgendamento(id, body);
   }
 }

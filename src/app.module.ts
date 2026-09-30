@@ -9,6 +9,8 @@ import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { AgendamentoModule } from './modules/agendamento/agendamento.module.js';
+import { AgendamentoModel } from './models/agendamento.model.js';
+import { TipoAtendimentoModel } from './models/tipo-atendimento.model.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -38,7 +40,9 @@ const observeImports = process.env.OBSERVE_ENABLED === 'true'
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
-        synchronize: false,
+        autoLoadModels: true,
+        models: [AgendamentoModel, TipoAtendimentoModel],
+        synchronize: true,
       }),
     }),
 
