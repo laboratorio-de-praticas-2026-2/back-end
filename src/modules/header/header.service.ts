@@ -6,9 +6,9 @@ export class HeaderService {
 	getHeader(): HeaderResponseDto {
 		const menu = [
 			{ id: 'home', label: 'Início', href: '/' },
-			{ id: 'sobre-nos', label: 'Sobre nós', href: '/sobre-nos' },
+			{ id: 'sobre-nos', label: 'Sobre nós', href: '/sobrenos' },
 			{ id: 'servicos', label: 'Serviços', href: '/servicos' },
-			{ id: 'solucoes', label: 'Soluções', href: '/solucoes' },
+			{ id: 'solucoes', label: 'Soluções', href: '/servicos#solucoes' },
 			{ id: 'blog', label: 'Blog', href: '/blog' },
 			{ id: 'duvidas', label: 'Dúvidas', href: '/duvidas' },
 		];
