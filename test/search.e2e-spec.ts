@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { getModelToken } from '@nestjs/sequelize';
 import { Test, TestingModule } from '@nestjs/testing';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -12,11 +13,11 @@ import { Usuario } from '../src/models/usuario.model.js';
 const TEST_JWT_SECRET = 'test-secret-e2e';
 
 function adminToken(): string {
-  return jwt.sign({ id: 1, nivel: 'administrador' }, TEST_JWT_SECRET);
+  return jwt.sign({ id: 1, nivel: 'administrador' }, TEST_JWT_SECRET, { jwtid: randomUUID() });
 }
 
 function clienteToken(id: number): string {
-  return jwt.sign({ id, nivel: 'cliente' }, TEST_JWT_SECRET);
+  return jwt.sign({ id, nivel: 'cliente' }, TEST_JWT_SECRET, { jwtid: randomUUID() });
 }
 
 describe('Search (e2e)', () => {
@@ -55,6 +56,7 @@ describe('Search (e2e)', () => {
       senha: 'hash-fake',
       cpfCnpj: '52998224725',
       celular: '11999998888',
+      updatedAt: new Date(),
     });
     usuarioId = usuario.id;
 
@@ -75,6 +77,7 @@ describe('Search (e2e)', () => {
       email: terceiroEmail,
       senha: 'hash-fake',
       cpfCnpj: terceiroCpf,
+      updatedAt: new Date(),
     });
     terceiroId = terceiro.id;
 
@@ -93,11 +96,11 @@ describe('Search (e2e)', () => {
     await app.close();
   });
 
-  it('GET /search/document sem token retorna 403', async () => {
+  it('GET /search/document sem token retorna 401', async () => {
     await request(app.getHttpServer())
       .get('/search/document')
       .query({ doc: '529.982.247-25' })
-      .expect(403);
+      .expect(401);
   });
 
   it('GET /search/document com token de administrador e CPF válido e encontrado retorna dados completos', async () => {
@@ -214,8 +217,8 @@ describe('Search (e2e)', () => {
       .expect(400);
   });
 
-  it('GET /search/advanced sem token retorna 403', async () => {
-    await request(app.getHttpServer()).get('/search/advanced').expect(403);
+  it('GET /search/advanced sem token retorna 401', async () => {
+    await request(app.getHttpServer()).get('/search/advanced').expect(401);
   });
 
   it('cliente na busca avançada enxerga apenas a própria conta, mesmo sem filtros', async () => {
