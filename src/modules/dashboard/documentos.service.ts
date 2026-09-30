@@ -14,16 +14,16 @@ export class DocumentosService {
     private readonly documentoModel: typeof DocumentoSolicitacao,
     @InjectModel(Solicitacao)
     private readonly solicitacaoModel: typeof Solicitacao,
-  ) {}
- 
+  ) { }
+
   async getIndicadores(startDate?: string, endDate?: string) {
     const periodo = resolvePeriodo(startDate, endDate);
- 
+
     const [cards, travadasPorFaltaDeDocumento] = await Promise.all([
       this.getCards(periodo),
       this.getTravadasPorFaltaDeDocumento(periodo),
     ]);
- 
+
     return { cards, travadasPorFaltaDeDocumento };
   }
 
@@ -49,16 +49,16 @@ export class DocumentosService {
       group: [col('DocumentoSolicitacao.status_validacao')],
       raw: true,
     })) as unknown as { statusValidacao: StatusValidacaoDocumentoEnum; quantidade: string }[];
- 
+
     const contagemPorStatus = new Map<StatusValidacaoDocumentoEnum, number>();
     for (const row of rows) {
       contagemPorStatus.set(row.statusValidacao, Number(row.quantidade));
     }
- 
+
     const recebidos = Array.from(contagemPorStatus.values()).reduce((acc, qtd) => acc + qtd, 0);
     const processados = contagemPorStatus.get(StatusValidacaoDocumentoEnum.APROVADO) ?? 0;
     const incorretos = contagemPorStatus.get(StatusValidacaoDocumentoEnum.REJEITADO) ?? 0;
- 
+
     const processosParados = await this.solicitacaoModel.count({
       where: {
         status: StatusSolicitacaoEnum.AGUARDANDO_DOCUMENTO,
@@ -68,7 +68,7 @@ export class DocumentosService {
         },
       },
     });
- 
+
     return { recebidos, processados, incorretos, processosParados };
   }
 
@@ -100,14 +100,18 @@ export class DocumentosService {
       ],
       raw: true,
     })) as unknown as { tipoDocumento: string; solicitacaoId: number }[];
- 
+
     const solicitacoesPorTipo = new Map<string, Set<number>>();
     for (const row of rows) {
-      const conjunto = solicitacoesPorTipo.get(row.tipoDocumento) ?? new Set<number>();
+      if (!row.tipoDocumento?.trim()) continue;
+
+      const conjunto =
+        solicitacoesPorTipo.get(row.tipoDocumento) ?? new Set<number>();
+
       conjunto.add(row.solicitacaoId);
       solicitacoesPorTipo.set(row.tipoDocumento, conjunto);
     }
- 
+
     return Array.from(solicitacoesPorTipo.entries())
       .map(([tipoDocumento, solicitacoes]) => ({
         tipoDocumento,

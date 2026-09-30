@@ -63,13 +63,13 @@ export function resolvePeriodo(
   startDate?: string,
   endDate?: string,
 ): PeriodoFiltro {
-  if ((startDate && !endDate) || (!startDate && endDate)) {
+  if ((startDate === undefined) !== (endDate === undefined)) {
     throw new BadRequestException(
       'startDate e endDate devem ser informados juntos',
     );
   }
 
-  if (!startDate && !endDate) {
+  if (startDate === undefined && endDate === undefined) {
     const hoje = hojeCalendarioSaoPaulo();
 
     const [ano, mes] = hoje.split('-').map(Number);
