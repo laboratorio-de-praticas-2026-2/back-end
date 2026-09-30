@@ -4,6 +4,10 @@ import { HeaderModule } from './modules/header/header.module.js';
 import { PublicidadeModule } from './modules/cms/publicidade/publicidade.module.js';
 import { ServicosModule } from './modules/cms/servicos/servicos.module.js';
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
+import { CloudinaryModule } from './cloudinary/cloudinary.module.js';
+import { RelatoriosModule } from './modules/relatorios/relatorios.module.js';
+import { PrismaModule } from './prisma/prisma.module.js';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { createObserveModule } from '@nestjs/observe';
@@ -33,6 +37,8 @@ import { Solicitacao } from './models/solicitacao.model.js';
 import { DocumentoSolicitacao } from './models/documento-solicitacao.model.js';
 import { Servico } from './models/servico.model.js';
 
+
+
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 const observeEnabled =
@@ -50,11 +56,25 @@ const observeImports =
       ]
     : [];
 
+const redisHost = process.env.REDIS_HOST ?? 'localhost';
+const redisPort = Number(process.env.REDIS_PORT ?? 6379);
+
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true,
+  isGlobal: true,
+  envFilePath: '.env',
+}),
+    BullModule.forRoot({
+      connection: {
+        host: redisHost,
+        port: Number.isFinite(redisPort) ? redisPort : 6379,
+      },
     }),
+
+    CloudinaryModule,
+
+    RelatoriosModule,
 
     SequelizeModule.forRootAsync({
       imports: [ConfigModule],
@@ -90,17 +110,17 @@ const observeImports =
       }),
     }),
 
-    ...observeImports,
-
-    ...(observeEnabled
-      ? [
-          ObserveModule.forRoot({
-            appKey: process.env.OBSERVE_APP_KEY!,
-            appSecret: process.env.OBSERVE_APP_SECRET!,
-            serviceId: 'back-end',
-          }),
-        ]
-      : []),
+...observeImports,
+...(observeEnabled
+  ? [
+      ObserveModule.forRoot({
+        appKey: process.env.OBSERVE_APP_KEY!,
+        appSecret: process.env.OBSERVE_APP_SECRET!,
+        serviceId: 'back-end',
+      }),
+    ]
+  : []),
+PrismaModule,
 
     AuthModule,
     ContatoModule,

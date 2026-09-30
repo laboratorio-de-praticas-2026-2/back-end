@@ -1,4 +1,5 @@
-import { Logger } from '@nestjs/common';
+import 'dotenv/config';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Sequelize } from 'sequelize-typescript';
 import { AppModule, ObserveInstrument } from './app.module.js';
@@ -17,7 +18,12 @@ async function bootstrap() {
 
   app.enableCors();
 
-  app.useGlobalPipes(validationPipe);
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
 
   const port = process.env.PORT ?? 3333;
   await app.listen(port);
@@ -26,20 +32,20 @@ async function bootstrap() {
   try {
     const sequelize = app.get(Sequelize);
     await sequelize.authenticate();
-    logger.log('✅ Conexão com o banco estabelecida');
+    logger.log('🟩 Conexão com o banco estabelecida');
   } catch (err) {
     logger.error('❌ Falha ao conectar no banco', err);
   }
 
   // Logs da API
   logger.log(`🚀 API rodando em http://localhost:${port}`);
-  logger.log(`🌍 Ambiente: ${process.env.NODE_ENV ?? 'development'}`);
+  logger.log(`🌎 Ambiente: ${process.env.NODE_ENV ?? 'development'}`);
   logger.log(
-    `🗄️  Banco: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+    `🗄️ Banco: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
   );
   logger.log(
-    `📊 Observe: ${observeEnabled ? 'ativado' : 'desativado (sem credenciais)'}`,
+    `📡 Observe: ${observeEnabled ? 'ativado' : 'desativado (sem credenciais)'}`,
   );
 }
 
-await bootstrap();
+bootstrap();
