@@ -1,7 +1,7 @@
+import { fileURLToPath } from 'node:url';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EjsAdapter } from '@nestjs-modules/mailer/adapters/ejs.adapter';
 import { Global, Module } from '@nestjs/common';
-import { join } from 'path';
 import { EmailService } from './email.service.js';
 
 @Global()
@@ -20,7 +20,7 @@ import { EmailService } from './email.service.js';
           },
         },
         template: {
-          dir: join(__dirname, 'templates'),
+          dir: fileURLToPath(new URL('./templates', import.meta.url)),
           adapter: new EjsAdapter(),
           options: {
             strict: false,

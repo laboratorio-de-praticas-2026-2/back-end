@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/sequelize';
 import { ChatService } from './chat.service.js';
 import { Conversa } from './entities/conversa.entity.js';
+import { Mensagem } from './entities/mensagem.entity.js';
 
 const conversaModel = {
   findOne: vi.fn(),
@@ -19,6 +20,7 @@ describe('ChatService', () => {
       providers: [
         ChatService,
         { provide: getModelToken(Conversa), useValue: conversaModel },
+        { provide: getModelToken(Mensagem), useValue: {} },
       ],
     })
       .overrideProvider(getModelToken(Conversa))
