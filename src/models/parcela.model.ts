@@ -11,6 +11,7 @@ import {
 } from 'sequelize-typescript';
 import { Pagamento } from './pagamento.model.js';
 import { StatusParcelaEnum } from '../commons/enums/status-parcela.enum.js';
+import type { NonAttribute } from 'sequelize';
 
 @Table({
   tableName: 'parcela',
@@ -60,5 +61,5 @@ export class Parcela extends Model {
   declare deletedAt: Date | null;
 
   @BelongsTo(() => Pagamento, 'idPagamento')
-  declare pagamento: Pagamento;
+  declare pagamento: NonAttribute<Pagamento>;
 }

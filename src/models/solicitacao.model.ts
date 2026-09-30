@@ -13,6 +13,7 @@ import { Servico } from './servico.model.js';
 import { DocumentoSolicitacao } from './documento-solicitacao.model.js';
 import { ObrigacaoServico } from './obrigacao-servico.model.js';
 import { StatusSolicitacaoEnum } from '../commons/enums/status-solicitacao.enum.js';
+import type { NonAttribute } from 'sequelize';
 
 // A tabela solicitacao NÃO possui created_at (a data de criação é data_solicitacao).
 @Table({
@@ -66,7 +67,7 @@ export class Solicitacao extends Model {
   declare deletedAt: Date | null;
 
   @BelongsTo(() => Servico, 'servicoId')
-  declare servico: Servico;
+  declare servico: NonAttribute<Servico>;
 
   @HasMany(() => DocumentoSolicitacao, 'solicitacaoId')
   declare documentos: DocumentoSolicitacao[];

@@ -12,6 +12,7 @@ import {
 } from 'sequelize-typescript';
 import { Obrigacao } from './obrigacao.model.js';
 import { Parcela } from './parcela.model.js';
+import type { NonAttribute } from 'sequelize';
 
 @Table({
   tableName: 'pagamento',
@@ -58,7 +59,7 @@ export class Pagamento extends Model {
   declare deletedAt: Date | null;
 
   @BelongsTo(() => Obrigacao, 'obrigacaoId')
-  declare obrigacao: Obrigacao;
+  declare obrigacao: NonAttribute<Obrigacao>;
 
   @HasMany(() => Parcela, 'idPagamento')
   declare parcelas: Parcela[];

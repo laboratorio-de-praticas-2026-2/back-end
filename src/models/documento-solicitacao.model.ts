@@ -10,6 +10,7 @@ import {
 } from 'sequelize-typescript';
 import { Solicitacao } from './solicitacao.model.js';
 import { StatusValidacaoDocumentoEnum } from '../commons/enums/status-validacao-documento.enum.js';
+import type { NonAttribute } from 'sequelize';
 
 // A tabela documento_solicitacao NÃO possui created_at.
 @Table({
@@ -54,5 +55,5 @@ export class DocumentoSolicitacao extends Model {
   declare deletedAt: Date | null;
 
   @BelongsTo(() => Solicitacao, 'solicitacaoId')
-  declare solicitacao: Solicitacao;
+ declare solicitacao: NonAttribute<Solicitacao>;
 }

@@ -10,6 +10,7 @@ import {
 import { Obrigacao } from './obrigacao.model.js';
 import { Servico } from './servico.model.js';
 import { Solicitacao } from './solicitacao.model.js';
+import type { NonAttribute } from 'sequelize';
 
 @Table({
   tableName: 'obrigacao_servico',
@@ -40,11 +41,11 @@ export class ObrigacaoServico extends Model {
   declare createdAt: Date;
 
   @BelongsTo(() => Obrigacao, 'obrigacaoId')
-  declare obrigacao: Obrigacao;
+  declare obrigacao: NonAttribute<Obrigacao>;
 
   @BelongsTo(() => Servico, 'idServico')
-  declare servico: Servico;
+  declare servico: NonAttribute<Servico>;
 
   @BelongsTo(() => Solicitacao, 'solicitacaoId')
-  declare solicitacao: Solicitacao;
+  declare solicitacao: NonAttribute<Solicitacao>;
 }
