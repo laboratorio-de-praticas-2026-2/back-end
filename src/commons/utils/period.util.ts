@@ -12,7 +12,8 @@ export interface Periodo {
  * - Com parâmetros: valida formato YYYY-MM-DD, valida ordem, retorna range [start, endExclusive)
  */
 export function resolvePeriodo(startDate?: string, endDate?: string): Periodo {
-  const incompleto = (startDate && !endDate) || (!startDate && endDate);
+  const incompleto =
+    (startDate === undefined) !== (endDate === undefined);
   if (incompleto) {
     throw new BadRequestException(
       'startDate e endDate devem ser enviados juntos.',
@@ -21,7 +22,7 @@ export function resolvePeriodo(startDate?: string, endDate?: string): Periodo {
 
   const hoje = getHojeSP();
 
-  if (!startDate && !endDate) {
+  if (startDate === undefined && endDate === undefined) {
     const primeiroDia = new Date(
       Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1),
     );
@@ -51,6 +52,7 @@ export function resolvePeriodo(startDate?: string, endDate?: string): Periodo {
  * Retorna null se o formato ou a data forem inválidos.
  */
 export function parseDateSP(value: string): Date | null {
+  if (typeof value !== 'string') return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [y, m, d] = value.split('-').map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
