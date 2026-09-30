@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { DocumentosController } from './documentos.controller.js';
 import { DocumentosService } from './documentos.service.js';
-import { AdminGuard } from '../../commons/guards/admin.guard.js';
 
 describe('DocumentosController', () => {
   let controller: DocumentosController;
@@ -38,9 +37,5 @@ describe('DocumentosController', () => {
     await controller.getIndicadores();
 
     expect(service.getIndicadores).toHaveBeenCalledWith(undefined, undefined);
-  });
-
-  it('está protegido pelo AdminGuard', () => {
-    expect(Reflect.getMetadata('__guards__', DocumentosController)).toContain(AdminGuard);
   });
 });

@@ -1,9 +1,7 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { DocumentosService } from './documentos.service.js';
-import { AdminGuard } from '../../commons/guards/admin.guard.js';
 
 @Controller('dashboard/documentos')
-@UseGuards(AdminGuard)
 export class DocumentosController {
     constructor(private readonly documentosService: DocumentosService) {}
 

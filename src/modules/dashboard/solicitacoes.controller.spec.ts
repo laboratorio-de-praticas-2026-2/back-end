@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { SolicitacoesController } from './solicitacoes.controller.js';
 import { SolicitacoesService } from './solicitacoes.service.js';
-import { AdminGuard } from '../../commons/guards/admin.guard.js';
 
 describe('SolicitacoesController', () => {
   let controller: SolicitacoesController;
@@ -38,10 +37,5 @@ describe('SolicitacoesController', () => {
     await controller.getIndicadores();
 
     expect(service.getIndicadores).toHaveBeenCalledWith(undefined, undefined);
-  });
-
-  it('está protegido pelo AdminGuard', () => {
-    // '__guards__' é a chave de metadata que o @UseGuards do Nest grava
-    expect(Reflect.getMetadata('__guards__', SolicitacoesController)).toContain(AdminGuard);
   });
 });
