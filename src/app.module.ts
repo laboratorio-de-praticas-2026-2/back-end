@@ -95,8 +95,8 @@ const redisPort = Number(process.env.REDIS_PORT ?? 6379);
 ...(observeEnabled
   ? [
       ObserveModule.forRoot({
-        appKey: process.env.OBSERVE_APP_KEY,
-        appSecret: process.env.OBSERVE_APP_SECRET,
+        appKey: process.env.OBSERVE_APP_KEY!,
+        appSecret: process.env.OBSERVE_APP_SECRET!,
         serviceId: 'back-end',
       }),
     ]
