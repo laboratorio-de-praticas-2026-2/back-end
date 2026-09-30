@@ -274,6 +274,7 @@ export class GeralService {
     const parcelas = await this.parcelaModel.findAll({
       attributes: ['id', 'idPagamento'],
       where: {
+        deletedAt: null,
         status: {
           [Op.in]: [StatusParcela.ATIVO, StatusParcela.ATRASADO],
         },
@@ -294,6 +295,7 @@ export class GeralService {
     const pagamentos = await this.pagamentoModel.findAll({
       attributes: ['id', 'idObrigacao'],
       where: {
+        deletedAt: null,
         id: {
           [Op.in]: pagamentoIds,
         },
@@ -311,6 +313,7 @@ export class GeralService {
     const obrigacoes = await this.obrigacaoModel.findAll({
       attributes: ['id', 'tipo', 'naturezaCobranca'],
       where: {
+        deletedAt: null,
         id: {
           [Op.in]: obrigacaoIds,
         },
@@ -567,6 +570,7 @@ export class GeralService {
     const parcelas = await this.parcelaModel.findAll({
       attributes: ['id', 'idPagamento', 'valor'],
       where: {
+        deletedAt: null,
         status: {
           [Op.in]: [StatusParcela.ATIVO, StatusParcela.ATRASADO],
         },
