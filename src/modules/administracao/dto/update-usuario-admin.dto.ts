@@ -1,6 +1,8 @@
+import { IsInt, Min, IsIn } from 'class-validator';
 import { IsEmail, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 export class UpdateUsuarioAdminDto {
+  @IsOptional() @IsInt() @Min(1) empresaId?: number;
   @IsOptional()
   @IsString()
   @Length(2, 100)
@@ -45,6 +47,7 @@ export class UpdateUsuarioAdminDto {
   @IsOptional()
   @IsString()
   @Length(2, 50)
+  @IsIn(['mei','simples_nacional','lucro_presumido','lucro_real'])
   regimeTributario?: string;
 
   @IsOptional()

@@ -11,7 +11,7 @@ import { AuthController } from './auth.controller.js';
 import { Roles } from './decorators/roles.decorator.js';
 import { AuthGuard } from './guards/auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
-import { hashSenha } from './password.util.js';
+import { PasswordService } from '../../commons/password.service.js';
 import { SessaoService } from './sessao.service.js';
 import { TokenDenylistService } from './token-denylist.service.js';
 import { USUARIO_AUTH_REPOSITORY } from './usuario-auth.repository.js';
@@ -46,7 +46,7 @@ describe('Autenticação (HTTP)', () => {
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'segredo-de-teste-com-mais-de-32-caracteres';
-    hash = await hashSenha('Senha@123');
+    hash = await new PasswordService().hash('Senha@123');
 
     const usuarios: UsuarioAuth[] = [
       { id: 1, nome: 'Ana', email: 'ana@teste.com', senhaHash: hash, nivel: NivelUsuarioEnum.cliente },
@@ -62,6 +62,7 @@ describe('Autenticação (HTTP)', () => {
       ],
       providers: [
         AuthService,
+        PasswordService,
         TokenDenylistService,
         SessaoService,
         AuthGuard,

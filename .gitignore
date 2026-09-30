@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /build
+*.tsbuildinfo
 
 # Logs
 logs
@@ -46,6 +47,9 @@ lerna-debug.log*
 .temp
 .tmp
 
+# Claude Code Subagent-Driven Development scratch workspace (never commit)
+/.superpowers
+
 # Runtime data
 pids
 *.pid
@@ -54,4 +58,5 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-"tsconfig.build.tsbuildinfo" 
+tsconfig.build.tsbuildinfo
+*.tsbuildinfo

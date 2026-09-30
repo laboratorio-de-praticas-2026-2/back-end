@@ -1,3 +1,5 @@
+import { Post } from '@nestjs/common';
+import { CadastroPjDto } from './dto/cadastro-pj.dto.js';
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
 
 import { ContatoService } from './contato.service.js';
@@ -11,6 +13,9 @@ import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js
 @Controller('contato')
 export class ContatoController {
   constructor(private readonly contatoService: ContatoService) {}
+
+  @Post('cadastro-pj')
+  cadastrarPj(@Body() dto: CadastroPjDto) { return this.contatoService.cadastrarPj(dto); }
 
   @Put()
   @UseGuards(AuthGuard, RolesGuard)

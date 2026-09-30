@@ -1,10 +1,10 @@
 import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from '../../commons/auth.service.js';
 import type { JwtUserPayload } from '../../commons/auth.service.js';
+import { PasswordService } from '../../commons/password.service.js';
 import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
 import type { LoginDto } from './dto/login.dto.js';
 import type { LoginResponse, UsuarioPublico } from './auth.types.js';
-import { obterHashFalso, verificarSenha } from './password.util.js';
 import { TokenDenylistService } from './token-denylist.service.js';
 import { USUARIO_AUTH_REPOSITORY } from './usuario-auth.repository.js';
 import type {
@@ -28,10 +28,16 @@ function paraUsuarioPublico(usuario: UsuarioAuth): UsuarioPublico {
 export class SessaoService {
   private readonly logger = new Logger(SessaoService.name);
 
+  /** Hash descartável (custo real do bcrypt) para comparar quando o e-mail
+   * não existe, e o login não vazar por tempo de resposta quais e-mails
+   * estão cadastrados. Calculado uma vez e reaproveitado. */
+  private hashFalso?: Promise<string>;
+
   constructor(
     @Inject(USUARIO_AUTH_REPOSITORY)
     private readonly usuarios: UsuarioAuthRepository,
     @Inject(AuthService) private readonly tokens: AuthService,
+    @Inject(PasswordService) private readonly senhas: PasswordService,
     @Inject(TokenDenylistService)
     private readonly denylist: TokenDenylistService,
   ) {}
@@ -40,9 +46,9 @@ export class SessaoService {
     const email = dto.email.trim().toLowerCase();
     const usuario = await this.usuarios.buscarPorEmail(email);
 
-    // Sempre compara uma senha, mesmo sem usuário, para não vazar por tempo de resposta.
-    const hash = usuario?.senhaHash ?? (await obterHashFalso());
-    const senhaConfere = await verificarSenha(dto.senha, hash);
+    this.hashFalso ??= this.senhas.hash('hash-falso-sem-usuario-correspondente');
+    const hash = usuario?.senhaHash ?? (await this.hashFalso);
+    const senhaConfere = await this.senhas.compare(dto.senha, hash);
 
     if (!usuario || !senhaConfere) {
       throw new UnauthorizedException(MENSAGEM_CREDENCIAIS_INVALIDAS);

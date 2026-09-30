@@ -1,10 +1,11 @@
+import { AuthSecurityModule } from './auth-security.module.js';
 import { Global, Module } from '@nestjs/common';
-import { AuthService } from '../../commons/auth.service.js';
+import { SequelizeModule } from '@nestjs/sequelize';
+import { PasswordService } from '../../commons/password.service.js';
+import { Usuario } from '../../models/usuario.model.js';
 import { AuthController } from './auth.controller.js';
-import { AuthGuard } from './guards/auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { SessaoService } from './sessao.service.js';
-import { TokenDenylistService } from './token-denylist.service.js';
 import {
   SequelizeUsuarioAuthRepository,
   USUARIO_AUTH_REPOSITORY,
@@ -16,18 +17,17 @@ import {
  */
 @Global()
 @Module({
+  imports: [AuthSecurityModule, SequelizeModule.forFeature([Usuario])],
   controllers: [AuthController],
   providers: [
-    AuthService,
-    TokenDenylistService,
+    PasswordService,
     SessaoService,
-    AuthGuard,
     RolesGuard,
     {
       provide: USUARIO_AUTH_REPOSITORY,
       useClass: SequelizeUsuarioAuthRepository,
     },
   ],
-  exports: [AuthService, TokenDenylistService, AuthGuard, RolesGuard],
+  exports: [AuthSecurityModule, RolesGuard],
 })
 export class AuthModule {}
