@@ -1,7 +1,10 @@
 import {
   Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
-  AllowNull, Default, DeletedAt,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, HasOne
 } from 'sequelize-typescript';
+import { ObrigacaoServico } from './obrigacao-servico.model.js';
+import { Pagamento } from './pagamento.model.js';
+import type { NonAttribute } from 'sequelize';
 
 export enum TipoObrigacao {
   SERVICO = 'servico',
@@ -21,8 +24,10 @@ export enum NaturezaCobranca {
 
 @Table({
   tableName: 'obrigacao',
-  timestamps: false,
+  timestamps: true,
   paranoid: true,
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
 export class Obrigacao extends Model<Obrigacao> {
@@ -57,11 +62,22 @@ export class Obrigacao extends Model<Obrigacao> {
   @AllowNull(true) @Column(DataType.DATEONLY)
   declare vencimento: string | null;
 
+  @CreatedAt
   @AllowNull(false)
-  @Column({ type: DataType.DATE(3), field: 'created_at' })
+  @Column({ type: DataType.DATE, field: 'created_at' })
   declare createdAt: Date;
 
+  @UpdatedAt
+  @Column({ type: DataType.DATE, field: 'updated_at' })
+  declare updatedAt: Date;
+
   @DeletedAt
-  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
+
+  @HasOne(() => ObrigacaoServico, 'idObrigacao')
+  declare obrigacaoServico: NonAttribute<ObrigacaoServico>;
+
+  @HasOne(() => Pagamento, 'idObrigacao')
+  declare pagamento: NonAttribute<Pagamento>;
 }

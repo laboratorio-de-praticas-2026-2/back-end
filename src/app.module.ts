@@ -8,6 +8,7 @@ import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+
 import { Usuario } from './models/usuario.model.js';
 import { Empresa } from './models/empresa.model.js';
 import { ObrigacaoEmpresa } from './models/obrigacao-empresa.model.js';
@@ -16,6 +17,8 @@ import { Obrigacao } from './models/obrigacao.model.js';
 import { Pagamento } from './models/pagamento.model.js';
 import { Parcela } from './models/parcela.model.js';
 import { Solicitacao } from './models/solicitacao.model.js';
+import { DocumentoSolicitacao } from './models/documento-solicitacao.model.js';
+import { Servico } from './models/servico.model.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -44,6 +47,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
           Pagamento,
           Parcela,
           Solicitacao,
+          DocumentoSolicitacao,
+          Servico,
         ],
         synchronize: false,
         logging: false,

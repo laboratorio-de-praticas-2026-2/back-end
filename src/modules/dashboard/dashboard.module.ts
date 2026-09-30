@@ -14,6 +14,7 @@ import { ServicosController } from './servicos.controller.js';
 import { ServicosService } from './servicos.service.js';
 import { GeralController } from './geral.controller.js';
 import { GeralService } from './geral.service.js';
+
 import { Usuario } from '../../models/usuario.model.js';
 import { Empresa } from '../../models/empresa.model.js';
 import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
@@ -22,6 +23,8 @@ import { Obrigacao } from '../../models/obrigacao.model.js';
 import { Pagamento } from '../../models/pagamento.model.js';
 import { Parcela } from '../../models/parcela.model.js';
 import { Solicitacao } from '../../models/solicitacao.model.js';
+import { DocumentoSolicitacao } from '../../models/documento-solicitacao.model.js';
+import { Servico } from '../../models/servico.model.js';
 
 @Module({
   imports: [
@@ -34,6 +37,8 @@ import { Solicitacao } from '../../models/solicitacao.model.js';
       Pagamento,
       Parcela,
       Solicitacao,
+      DocumentoSolicitacao,
+      Servico,
     ]),
   ],
   controllers: [
@@ -43,7 +48,7 @@ import { Solicitacao } from '../../models/solicitacao.model.js';
     DocumentosController,
     FiscalController,
     ServicosController,
-    GeralController
+    GeralController,
   ],
   providers: [
     FinanceiroService,
@@ -52,7 +57,7 @@ import { Solicitacao } from '../../models/solicitacao.model.js';
     DocumentosService,
     FiscalService,
     ServicosService,
-    GeralService
+    GeralService,
   ],
 })
 export class DashboardModule { }
