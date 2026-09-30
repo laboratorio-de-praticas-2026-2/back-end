@@ -1,8 +1,10 @@
+import {PasswordService} from '../../commons/password.service.js';
+import {getConnectionToken} from '@nestjs/sequelize';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/sequelize';
 import { ContatoService } from './contato.service.js';
-import { Usuario } from './entities/usuario.entity.js';
-import { Empresa } from './entities/empresa.entity.js';
+import { Usuario } from '../../models/usuario.model.js';
+import { Empresa } from '../../models/empresa.model.js';
 
 describe('ContatoService', () => {
   let service: ContatoService;
@@ -13,7 +15,7 @@ describe('ContatoService', () => {
       create: async (dados: any) => ({
         id: 1,
         ...dados,
-        get: ({ plain }: { plain: boolean }) => ({
+        get: (_options: { plain: boolean }) => ({
           id: 1,
           ...dados,
         }),
@@ -31,6 +33,8 @@ describe('ContatoService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContatoService,
+        PasswordService,
+        {provide:getConnectionToken(),useValue:{transaction:async(fn: (t: unknown)=>unknown)=>fn({})}},
         {
           provide: getModelToken(Usuario),
           useValue: usuarioModelMock,

@@ -1,3 +1,8 @@
+import {Empresa} from './models/empresa.model.js';
+import { SearchModule } from './modules/search/search.module.js';
+import { HeaderModule } from './modules/header/header.module.js';
+import { PublicidadeModule } from './modules/cms/publicidade/publicidade.module.js';
+import { ServicosModule } from './modules/cms/servicos/servicos.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
@@ -35,7 +40,7 @@ const observeEnabled = !!process.env.OBSERVE_APP_KEY && !!process.env.OBSERVE_AP
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
-        models: [Usuario],
+        models: [Usuario, Empresa],
         synchronize: false,
         autoLoadModels: true,
       }),
@@ -57,6 +62,10 @@ const observeEnabled = !!process.env.OBSERVE_APP_KEY && !!process.env.OBSERVE_AP
     DashboardModule,
     ClienteModule,
     AdministracaoModule,
+    SearchModule,
+    HeaderModule,
+    PublicidadeModule,
+    ServicosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

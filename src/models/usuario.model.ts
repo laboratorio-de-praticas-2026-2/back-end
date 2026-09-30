@@ -1,3 +1,5 @@
+import { HasMany } from 'sequelize-typescript';
+import { Empresa } from './empresa.model.js';
 import {
   AutoIncrement,
   Column,
@@ -34,6 +36,9 @@ export class Usuario
   extends Model<UsuarioAttributes, UsuarioCreationAttributes>
   implements UsuarioAttributes
 {
+  @HasMany(() => Empresa, { foreignKey: 'usuarioId', as: 'empresas' })
+  declare empresas: Empresa[];
+
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)

@@ -1,3 +1,5 @@
+import {PasswordService} from '../../commons/password.service.js';
+import {getConnectionToken} from '@nestjs/sequelize';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/sequelize';
 import { BadRequestException, ConflictException } from '@nestjs/common';
@@ -6,8 +8,8 @@ import { ContatoController } from './contato.controller.js';
 import { ContatoService } from './contato.service.js';
 import { AuthService } from '../../commons/auth.service.js';
 
-import { Usuario } from './entities/usuario.entity.js';
-import { Empresa } from './entities/empresa.entity.js';
+import { Usuario } from '../../models/usuario.model.js';
+import { Empresa } from '../../models/empresa.model.js';
 
 import { AuthGuard } from '../auth/guards/auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -31,7 +33,7 @@ describe('ContatoController & ContatoService', () => {
         const novoUsuario = {
           id: usuarios.length + 1,
           ...dados,
-          get: ({ plain }: { plain: boolean }) => ({
+          get: (_options: { plain: boolean }) => ({
             id: novoUsuario.id,
             ...dados,
           }),
@@ -66,6 +68,8 @@ describe('ContatoController & ContatoService', () => {
       controllers: [ContatoController],
       providers: [
         ContatoService,
+        PasswordService,
+        {provide:getConnectionToken(),useValue:{transaction:async(fn: (t: unknown)=>unknown)=>fn({})}},
         {
           provide: AuthService,
           useValue: {},
@@ -103,7 +107,7 @@ describe('ContatoController & ContatoService', () => {
       nome: 'Kauã Rodrigues',
       email: 'kaua.teste@exemplo.com',
       senha: 'SenhaMuitoSegura123',
-      cpf_cnpj: '123.456.789-00',
+      cpf_cnpj: '529.982.247-25',
       celular: '11999998888',
       razaoSocial: 'Empresa de Teste LTDA',
       nomeFantasia: 'Teste Soluções',

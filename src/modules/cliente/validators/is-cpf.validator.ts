@@ -6,7 +6,7 @@ import {
 @ValidatorConstraint({ name: 'isCpf', async: false })
 export class IsCpfConstraint implements ValidatorConstraintInterface {
   validate(value: string): boolean {
-    if (!/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(value)) {
+    if (!/^(?:\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/.test(value)) {
       return false;
     }
 

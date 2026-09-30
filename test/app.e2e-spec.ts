@@ -1,32 +1,20 @@
-import 'dotenv/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { SequelizeModule } from '@nestjs/sequelize';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
+import { App } from 'supertest/types';
+import { AppModule } from './../src/app.module.js';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<App>;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideModule(SequelizeModule)
-      .useModule(
-        SequelizeModule.forRoot({
-          dialect: 'sqlite',
-          storage: ':memory:',
-          autoLoadModels: true,
-          synchronize: true,
-          logging: false,
-        }),
-      )
-      .compile();
+    }).compile();
 
-    app = moduleFixture.createNestApplication({ logger: false });
+    app = moduleFixture.createNestApplication();
     await app.init();
-  }, 30000);
+  });
 
   it('/ (GET)', () => {
     return request(app.getHttpServer())
@@ -36,8 +24,6 @@ describe('AppController (e2e)', () => {
   });
 
   afterEach(async () => {
-    if (app) {
-      await app.close();
-    }
+    await app.close();
   });
 });

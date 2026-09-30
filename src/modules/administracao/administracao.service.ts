@@ -31,14 +31,14 @@ export class AdministracaoService {
 
   async listarUsuarios() {
     const rows = await this.buscarUsuarios();
-    return rows.map((row) => this.toResponse(row));
+    return this.agrupar(rows);
   }
 
   async buscarUsuario(id: number) {
     const rows = await this.buscarUsuarios('u.id = :id', { id });
     const row = rows[0];
     if (!row) throw new NotFoundException('Usuário não encontrado.');
-    return this.toResponse(row);
+    return this.agrupar(rows)[0];
   }
 
   async atualizarUsuario(id: number, dto: UpdateUsuarioAdminDto) {
@@ -68,6 +68,7 @@ export class AdministracaoService {
     }
 
     const isPj = atual.tipo === 'PJ';
+    const empresa = atual.empresas.find(e => e.id === dto.empresaId);
     const hasEmpresaFields = [
       dto.razaoSocial,
       dto.nomeFantasia,
@@ -81,10 +82,12 @@ export class AdministracaoService {
       throw new BadRequestException('Dados de empresa só podem ser alterados para usuários PJ.');
     }
 
-    if (cnpj && isPj && cnpj !== (atual as any).empresa?.cnpj) {
+    if (hasEmpresaFields && !empresa) throw new BadRequestException('Selecione uma empresa vinculada ao usuário.');
+
+    if (cnpj && isPj && cnpj !== empresa?.cnpj) {
       const duplicado = await this.sequelize.query<{ id: number }>(
-        'SELECT id FROM empresas WHERE cnpj = :cnpj AND usuarioId <> :id LIMIT 1',
-        { replacements: { cnpj, id }, type: QueryTypes.SELECT },
+        'SELECT id FROM empresa WHERE cnpj = :cnpj AND id <> :empresaId LIMIT 1',
+        { replacements: { cnpj, empresaId: dto.empresaId }, type: QueryTypes.SELECT },
       );
       if (duplicado.length) throw new ConflictException('CNPJ já cadastrado.');
     }
@@ -95,32 +98,34 @@ export class AdministracaoService {
     if (dto.celular !== undefined) usuarioUpdates.celular = dto.celular?.trim() || null;
     if (dto.cpfCnpj !== undefined) usuarioUpdates.cpf_cnpj = cpfCnpj || null;
 
+    await this.sequelize.transaction(async transaction => {
     if (Object.keys(usuarioUpdates).length) {
       const sets = Object.keys(usuarioUpdates).map((key) => `\`${key}\` = :${key}`);
       await this.sequelize.query(
         `UPDATE usuario SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = :id`,
-        { replacements: { ...usuarioUpdates, id }, type: QueryTypes.UPDATE },
+        { replacements: { ...usuarioUpdates, id }, type: QueryTypes.UPDATE, transaction },
       );
     }
 
     if (isPj && hasEmpresaFields) {
       const empresaUpdates: Record<string, unknown> = {};
-      if (dto.razaoSocial !== undefined) empresaUpdates.razaoSocial = dto.razaoSocial.trim();
-      if (dto.nomeFantasia !== undefined) empresaUpdates.nomeFantasia = dto.nomeFantasia?.trim() || null;
+      if (dto.razaoSocial !== undefined) empresaUpdates.razao_social = dto.razaoSocial.trim();
+      if (dto.nomeFantasia !== undefined) empresaUpdates.nome_fantasia = dto.nomeFantasia?.trim() || null;
       if (cnpj !== undefined) empresaUpdates.cnpj = cnpj;
-      if (dto.regimeTributario !== undefined) empresaUpdates.regimeTributario = dto.regimeTributario.trim();
-      if (dto.inscricaoEstadual !== undefined) empresaUpdates.inscricaoEstadual = dto.inscricaoEstadual?.trim() || null;
-      if (dto.inscricaoMunicipal !== undefined) empresaUpdates.inscricaoMunicipal = dto.inscricaoMunicipal?.trim() || null;
+      if (dto.regimeTributario !== undefined) empresaUpdates.regime_tributario = dto.regimeTributario.trim();
+      if (dto.inscricaoEstadual !== undefined) empresaUpdates.inscricao_estadual = dto.inscricaoEstadual?.trim() || null;
+      if (dto.inscricaoMunicipal !== undefined) empresaUpdates.inscricao_municipal = dto.inscricaoMunicipal?.trim() || null;
 
       const sets = Object.keys(empresaUpdates).map((key) => `\`${key}\` = :${key}`);
       if (sets.length) {
         await this.sequelize.query(
-          `UPDATE empresas SET ${sets.join(', ')} WHERE usuarioId = :id`,
-          { replacements: { ...empresaUpdates, id }, type: QueryTypes.UPDATE },
+          `UPDATE empresa SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE usuario_id = :id AND id = :empresaId`,
+          { replacements: { ...empresaUpdates, id, empresaId: dto.empresaId }, type: QueryTypes.UPDATE, transaction },
         );
       }
     }
 
+    });
     return this.buscarUsuario(id);
   }
 
@@ -134,16 +139,16 @@ export class AdministracaoService {
         u.cpf_cnpj AS cpfCnpj,
         u.celular,
         e.id AS empresaId,
-        e.razaoSocial AS razaoSocial,
-        e.nomeFantasia AS nomeFantasia,
+        e.razao_social AS razaoSocial,
+        e.nome_fantasia AS nomeFantasia,
         e.cnpj,
-        e.regimeTributario AS regimeTributario,
-        e.inscricaoEstadual AS inscricaoEstadual,
-        e.inscricaoMunicipal AS inscricaoMunicipal,
-        e.dataAbertura AS dataAbertura
+        e.regime_tributario AS regimeTributario,
+        e.inscricao_estadual AS inscricaoEstadual,
+        e.inscricao_municipal AS inscricaoMunicipal,
+        e.data_abertura AS dataAbertura
       FROM usuario u
-      LEFT JOIN empresas e ON e.usuarioId = u.id
-      ${where ? `WHERE ${where}` : ''}
+      LEFT JOIN empresa e ON e.usuario_id = u.id AND e.deleted_at IS NULL
+      WHERE u.deleted_at IS NULL AND u.nivel = 'cliente' ${where ? `AND ${where}` : ''}
       ORDER BY u.id
     `;
     return this.sequelize.query<UsuarioRow>(sql, {
@@ -152,31 +157,13 @@ export class AdministracaoService {
     });
   }
 
-  private toResponse(row: UsuarioRow) {
-    const tipo = row.empresaId ? 'PJ' : 'PF';
-    const response: Record<string, unknown> = {
-      id: row.id,
-      tipo,
-      nome: row.nome,
-      email: row.email,
-      nivel: row.nivel,
-      cpfCnpj: row.cpfCnpj,
-      celular: row.celular,
-    };
-
-    if (row.empresaId) {
-      response.empresa = {
-        id: row.empresaId,
-        razaoSocial: row.razaoSocial,
-        nomeFantasia: row.nomeFantasia,
-        cnpj: row.cnpj,
-        regimeTributario: row.regimeTributario,
-        inscricaoEstadual: row.inscricaoEstadual,
-        inscricaoMunicipal: row.inscricaoMunicipal,
-        dataAbertura: row.dataAbertura,
-      };
+  private agrupar(rows: UsuarioRow[]) {
+    const users = new Map<number, {id:number; nome:string; email:string; nivel:string; cpfCnpj:string|null; celular:string|null; tipo:string; empresas: Array<{id:number; razaoSocial:string|null; nomeFantasia:string|null; cnpj:string|null; regimeTributario:string|null; inscricaoEstadual:string|null; inscricaoMunicipal:string|null}>}>();
+    for (const row of rows) {
+      let u = users.get(row.id);
+      if (!u) { u = {id:row.id, nome:row.nome, email:row.email, nivel:row.nivel, cpfCnpj:row.cpfCnpj, celular:row.celular, tipo:'PF', empresas:[]}; users.set(row.id,u); }
+      if(row.empresaId) { u.tipo='PJ'; u.empresas.push({id:row.empresaId,razaoSocial:row.razaoSocial,nomeFantasia:row.nomeFantasia,cnpj:row.cnpj,regimeTributario:row.regimeTributario,inscricaoEstadual:row.inscricaoEstadual,inscricaoMunicipal:row.inscricaoMunicipal}); }
     }
-
-    return response;
+    return [...users.values()];
   }
 }

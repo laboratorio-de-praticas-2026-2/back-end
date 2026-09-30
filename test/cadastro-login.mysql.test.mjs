@@ -1,3 +1,4 @@
+import { Empresa } from '../dist/models/empresa.model.js';
 import 'reflect-metadata';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
@@ -55,7 +56,7 @@ test(
             username: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
             database: process.env.DB_NAME,
-            models: [Usuario],
+            models: [Usuario, Empresa],
             synchronize: false,
             logging: false,
             retryAttempts: 0,

@@ -1,5 +1,4 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { QueryTypes } from 'sequelize';
 import { describe, expect, it } from 'vitest';
 import { AdministracaoService } from './administracao.service.js';
 
@@ -9,11 +8,12 @@ function makeSequelize(rows: Row[] = []) {
   const calls: Array<{ sql: string; replacements?: Record<string, unknown> }> = [];
   const sequelize = {
     calls,
+    transaction: async (fn: (t: unknown) => unknown) => fn({}),
     query: async (sql: string, options?: { replacements?: Record<string, unknown>; type?: unknown }) => {
       calls.push({ sql, replacements: options?.replacements });
       if (sql.includes('FROM usuario u')) return rows;
       if (sql.includes('SELECT id FROM usuario')) return [];
-      if (sql.includes('SELECT id FROM empresas')) return [];
+      if (sql.includes('SELECT id FROM empresa')) return [];
       return [];
     },
   };
@@ -49,13 +49,15 @@ const pj: Row = {
 
 describe('AdministracaoService', () => {
   it('lista PF e PJ e nunca expõe senha', async () => {
-    const service = new AdministracaoService(makeSequelize([pf, pj]) as never);
+    const fake = makeSequelize([pf, pj]);
+    const service = new AdministracaoService(fake as never);
     const result = await service.listarUsuarios();
 
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ id: 1, tipo: 'PF' });
-    expect(result[1]).toMatchObject({ id: 2, tipo: 'PJ', empresa: { cnpj: '12345678000199' } });
+    expect(result[1]).toMatchObject({ id: 2, tipo: 'PJ', empresas: [{ cnpj: '12345678000199' }] });
     expect(JSON.stringify(result)).not.toContain('senha');
+    expect(fake.calls[0].sql).toContain("u.nivel = 'cliente'");
   });
 
   it('retorna 404 para usuário inexistente', async () => {

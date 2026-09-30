@@ -55,7 +55,7 @@ describe('ClienteService', () => {
       nome: 'Maria da Silva',
       email: 'maria@example.com',
       nivel: NivelUsuarioEnum.cliente,
-      cpfCnpj: validDto.cpfCnpj,
+      cpfCnpj: validDto.cpfCnpj.replace(/\D/g, ''),
       celular: '11999999999',
     });
     expect(createdData.senha).not.toBe(validDto.senha);

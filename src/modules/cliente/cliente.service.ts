@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { CreationAttributes, UniqueConstraintError } from 'sequelize';
+import { CreationAttributes, UniqueConstraintError, Op } from 'sequelize';
 import { PasswordService } from '../../commons/password.service.js';
 import { NivelUsuarioEnum } from '../../commons/constantes/nivel-usuario-enum.js';
 import {
@@ -21,7 +21,7 @@ export class ClienteService {
 
   async create(dto: CreateClienteDto): Promise<ClienteResponse> {
     const email = dto.email.trim().toLowerCase();
-    const cpfCnpj = dto.cpfCnpj.trim();
+    const cpfCnpj = dto.cpfCnpj.replace(/\D/g, '');
 
     const emailExistente = await this.usuarioModel.findOne({
       where: { email },
@@ -31,7 +31,7 @@ export class ClienteService {
     }
 
     const cpfExistente = await this.usuarioModel.findOne({
-      where: { cpfCnpj },
+      where: { cpfCnpj: { [Op.in]: [cpfCnpj, cpfCnpj.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')] } },
     });
     if (cpfExistente) {
       throw new ConflictException('CPF já cadastrado.');
