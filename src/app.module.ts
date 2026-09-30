@@ -22,7 +22,16 @@ import { AgendamentoModel } from './models/agendamento.model.js';
 import { TipoAtendimentoModel } from './models/tipo-atendimento.model.js';
 import { ClienteModule } from './modules/cliente/cliente.module.js';
 import { AdministracaoModule } from './modules/administracao/administracao.module.js';
+
 import { Usuario } from './models/usuario.model.js';
+import { ObrigacaoEmpresa } from './models/obrigacao-empresa.model.js';
+import { ObrigacaoServico } from './models/obrigacao-servico.model.js';
+import { Obrigacao } from './models/obrigacao.model.js';
+import { Pagamento } from './models/pagamento.model.js';
+import { Parcela } from './models/parcela.model.js';
+import { Solicitacao } from './models/solicitacao.model.js';
+import { DocumentoSolicitacao } from './models/documento-solicitacao.model.js';
+import { Servico } from './models/servico.model.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -57,7 +66,9 @@ const observeImports =
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
-
+        
+        // Ativado o autoLoad para facilitar futuros merges,
+        // mas mantendo o registro explicito dos nossos models.
         autoLoadModels: true,
 
         models: [
@@ -65,6 +76,14 @@ const observeImports =
           TipoAtendimentoModel,
           Usuario,
           Empresa,
+          ObrigacaoEmpresa,
+          ObrigacaoServico,
+          Obrigacao,
+          Pagamento,
+          Parcela,
+          Solicitacao,
+          DocumentoSolicitacao,
+          Servico,
         ],
 
         synchronize: true,
@@ -104,4 +123,4 @@ const observeImports =
 
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

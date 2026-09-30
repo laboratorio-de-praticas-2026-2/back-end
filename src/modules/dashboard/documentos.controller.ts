@@ -1,4 +1,15 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
+import { DocumentosService } from './documentos.service.js';
 
-@Controller('documentos')
-export class DocumentosController {}
+@Controller('dashboard/documentos')
+export class DocumentosController {
+    constructor(private readonly documentosService: DocumentosService) {}
+
+    @Get()
+    async getIndicadores(
+        @Query('startDate') startDate?: string,
+        @Query('endDate') endDate?: string,
+    ) {
+        return this.documentosService.getIndicadores(startDate, endDate);
+    }
+}
