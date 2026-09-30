@@ -257,15 +257,15 @@ export class GeralService {
         .map((pagamento) => pagamento.id),
     );
 
-    const total = parcelasPagas.reduce((soma, parcela) => {
+    const totalCentavos = parcelasPagas.reduce((soma, parcela) => {
       if (!pagamentosElegiveis.has(parcela.idPagamento)) {
         return soma;
       }
 
-      return soma + Number(parcela.valor);
-    }, 0);
+      return soma + this.centavos(parcela.valor);
+    }, 0n);
 
-    return round2(total);
+    return Number(totalCentavos) / 100;
   }
 
   private async calcularClientesInadimplentes(
@@ -852,7 +852,7 @@ export class GeralService {
       }
     }
 
-    const saldoCentavosPorUsuario = new Map<number, number>();
+    const saldoCentavosPorUsuario = new Map<number, bigint>();
 
     for (const parcela of parcelas) {
       const pagamento = pagamentoPorId.get(parcela.idPagamento);
@@ -873,10 +873,10 @@ export class GeralService {
         continue;
       }
 
-      const valorCentavos = Math.round(Number(parcela.valor) * 100);
+      const valorCentavos = this.centavos(parcela.valor);
 
       const saldoAtual =
-        saldoCentavosPorUsuario.get(usuarioId) ?? 0;
+        saldoCentavosPorUsuario.get(usuarioId) ?? 0n;
 
       saldoCentavosPorUsuario.set(
         usuarioId,
@@ -885,7 +885,7 @@ export class GeralService {
     }
 
     const usuarioIds = [...saldoCentavosPorUsuario.entries()]
-      .filter(([, saldoCentavos]) => saldoCentavos > 0)
+      .filter(([, saldoCentavos]) => saldoCentavos > 0n)
       .map(([usuarioId]) => usuarioId);
 
     if (usuarioIds.length === 0) {
@@ -918,7 +918,7 @@ export class GeralService {
       }
 
       const saldoCentavos =
-        saldoCentavosPorUsuario.get(usuarioId) ?? 0;
+        saldoCentavosPorUsuario.get(usuarioId) ?? 0n;
 
       const regimes = [
         ...(regimesPorUsuario.get(usuarioId) ?? new Set<string>()),
@@ -934,7 +934,7 @@ export class GeralService {
         clienteNome: usuario.nome,
         regimes,
         servicosExtras,
-        valorEmAberto: round2(saldoCentavos / 100),
+        valorEmAberto: Number(saldoCentavos) / 100,
       });
     }
 
@@ -947,5 +947,17 @@ export class GeralService {
 
         return a.clienteId - b.clienteId;
       });
+  }
+  private centavos(valor: string | number): bigint {
+    const partes = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(String(valor));
+
+    if (!partes) {
+      throw new Error('Valor monetário inválido retornado pelo banco.');
+    }
+
+    const inteiro = BigInt(partes[2]) * 100n;
+    const decimal = BigInt((partes[3] ?? '').padEnd(2, '0'));
+
+    return (partes[1] ? -1n : 1n) * (inteiro + decimal);
   }
 }
