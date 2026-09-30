@@ -1,7 +1,10 @@
 import {
   Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
-  AllowNull, Default, DeletedAt,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany
 } from 'sequelize-typescript';
+import { Obrigacao } from './obrigacao.model.js';
+import { Parcela } from './parcela.model.js';
+import type { NonAttribute } from 'sequelize';
 
 export enum TipoPagamento {
   AVISTA = 'avista',
@@ -10,14 +13,17 @@ export enum TipoPagamento {
 
 @Table({
   tableName: 'pagamento',
-  timestamps: false,
+  timestamps: true,
   paranoid: true,
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
 export class Pagamento extends Model<Pagamento> {
   @PrimaryKey @AutoIncrement @Column(DataType.INTEGER)
   declare id: number;
 
+  @ForeignKey(() => Obrigacao)
   @AllowNull(false)
   @Column({ type: DataType.INTEGER, field: 'id_obrigacao' })
   declare idObrigacao: number;
@@ -44,11 +50,22 @@ export class Pagamento extends Model<Pagamento> {
   @Default(0) @AllowNull(false) @Column(DataType.DECIMAL(10, 2))
   declare taxa: number;
 
+  @CreatedAt
   @AllowNull(false)
-  @Column({ type: DataType.DATE(3), field: 'created_at' })
+  @Column({ type: DataType.DATE, field: 'created_at' })
   declare createdAt: Date;
 
+  @UpdatedAt
+  @Column({ type: DataType.DATE, field: 'updated_at' })
+  declare updatedAt: Date;
+
   @DeletedAt
-  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
+
+  @BelongsTo(() => Obrigacao, 'idObrigacao')
+  declare obrigacao: NonAttribute<Obrigacao>;
+
+  @HasMany(() => Parcela, 'idPagamento')
+  declare parcelas: Parcela[];
 }

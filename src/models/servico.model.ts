@@ -1,12 +1,16 @@
 import {
   Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
-  AllowNull, Default, DeletedAt,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, HasMany
 } from 'sequelize-typescript';
+import { Solicitacao } from './solicitacao.model.js';
+import { ObrigacaoServico } from './obrigacao-servico.model.js';
 
 @Table({
   tableName: 'servico',
-  timestamps: false,
+  timestamps: true,
   paranoid: true,
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
 export class Servico extends Model<Servico> {
@@ -28,7 +32,24 @@ export class Servico extends Model<Servico> {
   @Default(true) @AllowNull(false) @Column(DataType.BOOLEAN)
   declare ativo: boolean;
 
+  @Default(false) @AllowNull(false) @Column({ type: DataType.BOOLEAN, field: 'exige_empresa' })
+  declare exigeEmpresa: boolean;
+
+  @CreatedAt
+  @Column({ type: DataType.DATE, field: 'created_at' })
+  declare createdAt: Date;
+
+  @UpdatedAt
+  @Column({ type: DataType.DATE, field: 'updated_at' })
+  declare updatedAt: Date;
+
   @DeletedAt
-  @Column({ type: DataType.DATE(3), field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
+
+  @HasMany(() => Solicitacao, 'servicoId')
+  declare solicitacoes: Solicitacao[];
+
+  @HasMany(() => ObrigacaoServico, 'idServico')
+  declare obrigacaoServico: ObrigacaoServico[];
 }
