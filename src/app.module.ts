@@ -8,7 +8,6 @@ import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
-import { ServicoModule } from './modules/servico/servico.module.js';
 import { ServicosModule } from './modules/cms/servicos/servicos.module.js';
 import { PublicidadeModule } from './modules/cms/publicidade/publicidade.module.js';
 import { HeaderModule } from './modules/header/header.module.js';
@@ -63,7 +62,6 @@ const observeEnabled =
     DisparoModule,
     MensagemModule,
     DashboardModule,
-    ServicoModule,
     ServicosModule,
     PublicidadeModule,
     HeaderModule,
