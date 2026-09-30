@@ -14,7 +14,7 @@ import {
 import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
 import { Pagamento } from '../../models/pagamento.model.js';
 import { Parcela, StatusParcela } from '../../models/parcela.model.js';
-import { resolvePeriodo, round2 } from '../../commons/utils/period.util.js';
+import { resolvePeriodo } from '../../commons/utils/period.util.js';
 
 @Injectable()
 export class ServicosService {
@@ -116,7 +116,10 @@ export class ServicosService {
     );
     const servicoPorId = new Map(servicos.map((s) => [s.id, s]));
 
-    const faturamentoMap = new Map<number, { nome: string; total: number }>();
+    const faturamentoMap = new Map<
+      number,
+      { nome: string; total: bigint }
+    >();
 
     for (const parcela of parcelasPagas) {
       const pagamento = pagamentoPorId.get(parcela.idPagamento);
@@ -130,22 +133,23 @@ export class ServicosService {
 
       const atual = faturamentoMap.get(servico.id) ?? {
         nome: servico.nome,
-        total: 0,
+        total: 0n,
       };
-      atual.total += Number(parcela.valor) || 0;
+
+      atual.total += this.centavos(parcela.valor);
       faturamentoMap.set(servico.id, atual);
     }
 
     const faturamentoPorServico = Array.from(faturamentoMap.entries())
-      .map(([servicoId, v]) => ({
+      .sort(([idA, a], [idB, b]) => {
+        if (a.total === b.total) return idA - idB;
+        return a.total > b.total ? -1 : 1;
+      })
+      .map(([servicoId, item]) => ({
         servicoId,
-        servicoNome: v.nome,
-        totalFaturado: round2(v.total),
-      }))
-      .sort(
-        (a, b) =>
-          b.totalFaturado - a.totalFaturado || a.servicoId - b.servicoId,
-      );
+        servicoNome: item.nome,
+        totalFaturado: Number(item.total) / 100,
+      }));
 
     // 3. Demandas
     const solicitacoes = await this.solicitacaoModel.findAll({
@@ -197,5 +201,17 @@ export class ServicosService {
       faturamentoPorServico,
       demandasMaisSolicitadas,
     };
+  }
+  private centavos(valor: string | number): bigint {
+    const partes = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(String(valor));
+
+    if (!partes) {
+      throw new Error('Valor monetário inválido retornado pelo banco.');
+    }
+
+    const inteiro = BigInt(partes[2]) * 100n;
+    const decimal = BigInt((partes[3] ?? '').padEnd(2, '0'));
+
+    return (partes[1] ? -1n : 1n) * (inteiro + decimal);
   }
 }
