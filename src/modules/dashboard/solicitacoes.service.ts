@@ -218,8 +218,8 @@ export class SolicitacoesService {
 
   private async getTotalCreditosAberto(periodo: PeriodoFiltro): Promise<number> {
     const obrigacaoRows = (await this.obrigacaoServicoModel.findAll({
-      attributes: ['obrigacaoId'],
-      group: ['obrigacaoId'],
+      attributes: ['idObrigacao'],
+      group: ['idObrigacao'],
       include: [
         {
           model: Solicitacao,
@@ -263,7 +263,7 @@ export class SolicitacoesService {
           as: 'pagamento',
           attributes: [],
           required: true,
-          where: { obrigacaoId: { [Op.in]: obrigacaoIds } },
+          where: { idObrigacao: { [Op.in]: obrigacaoIds } },
         },
       ],
       raw: true,
