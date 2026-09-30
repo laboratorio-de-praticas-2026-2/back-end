@@ -1,4 +1,4 @@
-import {Empresa} from './models/empresa.model.js';
+import { Empresa } from './models/empresa.model.js';
 import { SearchModule } from './modules/search/search.module.js';
 import { HeaderModule } from './modules/header/header.module.js';
 import { PublicidadeModule } from './modules/cms/publicidade/publicidade.module.js';
@@ -25,17 +25,21 @@ import { AdministracaoModule } from './modules/administracao/administracao.modul
 import { Usuario } from './models/usuario.model.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
-const observeEnabled = !!process.env.OBSERVE_APP_KEY && !!process.env.OBSERVE_APP_SECRET;
 
-const observeImports = process.env.OBSERVE_ENABLED === 'true'
-  ? [
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'back-end',
-    }),
-  ]
-  : [];
+const observeEnabled =
+  !!process.env.OBSERVE_APP_KEY &&
+  !!process.env.OBSERVE_APP_SECRET;
+
+const observeImports =
+  process.env.OBSERVE_ENABLED === 'true'
+    ? [
+        ObserveModule.forRoot({
+          appKey: 'YOUR_APP_KEY',
+          appSecret: 'YOUR_APP_SECRET',
+          serviceId: 'back-end',
+        }),
+      ]
+    : [];
 
 @Module({
   imports: [
@@ -53,24 +57,31 @@ const observeImports = process.env.OBSERVE_ENABLED === 'true'
         username: configService.get<string>('DB_USER'),
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
+
         autoLoadModels: true,
-        models: [AgendamentoModel, TipoAtendimentoModel],
+
+        models: [
+          AgendamentoModel,
+          TipoAtendimentoModel,
+          Usuario,
+          Empresa,
+        ],
+
         synchronize: true,
       }),
     }),
 
     ...observeImports,
-        models: [Usuario, Empresa],
-        synchronize: false,
-        autoLoadModels: true,
-      }),
-    }),
 
-    ...(observeEnabled ? [ObserveModule.forRoot({
-      appKey: process.env.OBSERVE_APP_KEY!,
-      appSecret: process.env.OBSERVE_APP_SECRET!,
-      serviceId: 'back-end',
-    })] : []),
+    ...(observeEnabled
+      ? [
+          ObserveModule.forRoot({
+            appKey: process.env.OBSERVE_APP_KEY!,
+            appSecret: process.env.OBSERVE_APP_SECRET!,
+            serviceId: 'back-end',
+          }),
+        ]
+      : []),
 
     AuthModule,
     ContatoModule,
@@ -88,7 +99,9 @@ const observeImports = process.env.OBSERVE_ENABLED === 'true'
     PublicidadeModule,
     ServicosModule,
   ],
+
   controllers: [AppController],
+
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}
