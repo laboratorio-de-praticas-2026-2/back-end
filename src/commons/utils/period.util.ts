@@ -20,59 +20,41 @@ export function parseDateSP(value: string): Date | null {
   ) {
     return null;
   }
-
   return date;
 }
 
-// Representa a data de calendário de São Paulo com horário UTC zerado.
-// Não representa o instante da meia-noite de São Paulo.
 export function getHojeSP(): Date {
-  const partes = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-
-  const obter = (tipo: string) =>
-    Number(partes.find((parte) => parte.type === tipo)!.value);
-
-  return new Date(
-    Date.UTC(obter('year'), obter('month') - 1, obter('day')),
-  );
+  const now = new Date();
+  const spStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+  const sp = new Date(spStr);
+  return new Date(Date.UTC(sp.getFullYear(), sp.getMonth(), sp.getDate()));
 }
 
-export function resolvePeriodo(
-  startDate?: string,
-  endDate?: string,
-): Periodo {
+export function resolvePeriodo(startDate?: string, endDate?: string): Periodo {
+  const incompleto = (startDate === undefined) !== (endDate === undefined);
+  if (incompleto) {
+    throw new BadRequestException('startDate e endDate devem ser enviados juntos.');
+  }
+
   let start: Date;
   let end: Date;
 
   if (startDate === undefined && endDate === undefined) {
     end = getHojeSP();
-
-    start = new Date(
-      Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1),
-    );
+    start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
   } else {
-    const inicio = parseDateSP(startDate ?? '');
-    const fim = parseDateSP(endDate ?? '');
+    const inicio = parseDateSP(startDate!);
+    const fim = parseDateSP(endDate!);
 
     if (!inicio || !fim) {
-      throw new BadRequestException(
-        'Informe startDate e endDate com datas válidas no formato YYYY-MM-DD.',
-      );
+      throw new BadRequestException('Data inválida. Use o formato YYYY-MM-DD.');
     }
-
     start = inicio;
     end = fim;
   }
 
   if (start > end) {
-    throw new BadRequestException(
-      'startDate não pode ser posterior a endDate.',
-    );
+    throw new BadRequestException('startDate não pode ser posterior a endDate.');
   }
 
   const endExclusive = new Date(end);

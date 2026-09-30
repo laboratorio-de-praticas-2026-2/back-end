@@ -1,12 +1,6 @@
 import {
-  Table,
-  Column,
-  Model,
-  DataType,
-  HasMany,
-  CreatedAt,
-  UpdatedAt,
-  DeletedAt,
+  Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, HasMany
 } from 'sequelize-typescript';
 import { Solicitacao } from './solicitacao.model.js';
 import { ObrigacaoServico } from './obrigacao-servico.model.js';
@@ -19,27 +13,26 @@ import { ObrigacaoServico } from './obrigacao-servico.model.js';
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
-export class Servico extends Model {
-  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+export class Servico extends Model<Servico> {
+  @PrimaryKey @AutoIncrement @Column(DataType.INTEGER)
   declare id: number;
 
-  @Column({ type: DataType.STRING(100), allowNull: false })
+  @AllowNull(false) @Column(DataType.STRING(100))
   declare nome: string;
 
-  @Column({ type: DataType.TEXT, allowNull: true })
+  @AllowNull(true) @Column(DataType.TEXT)
   declare descricao: string | null;
 
-  // DECIMAL vem como string do driver MySQL
-  @Column({ type: DataType.DECIMAL(10, 2), allowNull: true, field: 'valor_base' })
-  declare valorBase: string | null;
+  @AllowNull(true) @Column({ type: DataType.DECIMAL(10, 2), field: 'valor_base' })
+  declare valorBase: number | null;
 
-  @Column({ type: DataType.INTEGER, allowNull: true, field: 'prazo_estimado_dias' })
+  @AllowNull(true) @Column({ type: DataType.INTEGER, field: 'prazo_estimado_dias' })
   declare prazoEstimadoDias: number | null;
 
-  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true })
+  @Default(true) @AllowNull(false) @Column(DataType.BOOLEAN)
   declare ativo: boolean;
 
-  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: false, field: 'exige_empresa' })
+  @Default(false) @AllowNull(false) @Column({ type: DataType.BOOLEAN, field: 'exige_empresa' })
   declare exigeEmpresa: boolean;
 
   @CreatedAt
@@ -51,7 +44,7 @@ export class Servico extends Model {
   declare updatedAt: Date;
 
   @DeletedAt
-  @Column({ type: DataType.DATE, allowNull: true, field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
 
   @HasMany(() => Solicitacao, 'servicoId')
