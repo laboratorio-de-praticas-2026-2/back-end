@@ -45,6 +45,7 @@ test('Core: PF/PJ, permissões, busca, CMS e edição de duas empresas em banco 
    await call(`${path}/admin/${item.id}/status`,'PATCH',{ativo:false},admin);assert.ok(!(await call(path)).some(v=>v.id===item.id));
    await call(`${path}/admin/${item.id}/status`,'PATCH',{ativo:true},admin);assert.ok((await call(path)).some(v=>v.id===item.id));
    await call(`${path}/admin/${item.id}`,'DELETE',undefined,admin);assert.ok(!(await call(path)).some(v=>v.id===item.id));
+   if(path==='servicos'){const [deleted]=await db.execute('SELECT deleted_at FROM servico WHERE id=?',[item.id]);assert.ok(deleted[0].deleted_at);assert.ok(!(await call('servicos/admin','GET',undefined,admin)).some(v=>v.id===item.id));}
   }
   const filtered=await call('search/advanced?regimeTributario=mei','GET',undefined,admin);assert.ok(filtered.results.some(u=>u.id===p.usuario.id));
   await call('auth/logout','POST',undefined,token,204);

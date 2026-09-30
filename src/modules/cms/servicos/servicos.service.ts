@@ -155,15 +155,12 @@ export class ServicosService {
   return servico;
   }
 
-  // Remove um serviço cadastrado.
+  // Oculta um serviço sem quebrar solicitações e obrigações já vinculadas a ele.
   //
   // Antes da exclusão, verificamos se o serviço existe.
   // Caso não exista, buscarPorId() já retorna HTTP 404.
   //
-  // IMPORTANTE:
-  // Serviços podem possuir relacionamentos com outras entidades.
-  // Caso o banco impeça a exclusão por integridade referencial,
-  // o registro não deve ser removido de forma forçada.
+  // O modelo usa exclusão lógica na coluna deleted_at.
   async remover(id: number): Promise<void> {
 
     const servico = await this.buscarPorId(id);

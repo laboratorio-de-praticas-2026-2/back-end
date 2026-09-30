@@ -16,8 +16,12 @@ import type {
 } from 'sequelize';
 
 @Table({
-  tableName: 'servico', // Nome EXATO da tabela existente no MySQL
-  timestamps: true, createdAt: false, updatedAt: 'updated_at',    // A tabela não possui createdAt e updatedAt
+  tableName: 'servico',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  deletedAt: 'deleted_at',
+  paranoid: true,
 })
 export class Servico extends Model<
   InferAttributes<Servico>,
