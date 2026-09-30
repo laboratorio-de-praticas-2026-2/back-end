@@ -1,21 +1,21 @@
 import {
-  Table,
-  Column,
-  Model,
-  DataType,
-  ForeignKey,
-  BelongsTo,
-  HasMany,
-  UpdatedAt,
-  DeletedAt,
+  Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
+  AllowNull, Default, DeletedAt, UpdatedAt, HasMany, BelongsTo, ForeignKey
 } from 'sequelize-typescript';
 import { Servico } from './servico.model.js';
 import { DocumentoSolicitacao } from './documento-solicitacao.model.js';
 import { ObrigacaoServico } from './obrigacao-servico.model.js';
-import { StatusSolicitacaoEnum } from '../commons/enums/status-solicitacao.enum.js';
 import type { NonAttribute } from 'sequelize';
 
-// A tabela solicitacao NÃO possui created_at (a data de criação é data_solicitacao).
+export enum StatusSolicitacao {
+  RECEBIDO = 'recebido',
+  AGUARDANDO_PAGAMENTO = 'aguardando_pagamento',
+  AGUARDANDO_DOCUMENTO = 'aguardando_documento',
+  EM_ANDAMENTO = 'em_andamento',
+  CONCLUIDO = 'concluido',
+  CANCELADO = 'cancelado',
+}
+
 @Table({
   tableName: 'solicitacao',
   timestamps: true,
@@ -24,38 +24,42 @@ import type { NonAttribute } from 'sequelize';
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
-export class Solicitacao extends Model {
-  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+export class Solicitacao extends Model<Solicitacao> {
+  @PrimaryKey @AutoIncrement @Column(DataType.INTEGER)
   declare id: number;
 
-  // FKs para usuario/empresa: models ainda não criados, por isso sem @ForeignKey.
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'usuario_id' })
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'usuario_id' })
   declare usuarioId: number;
 
-  @Column({ type: DataType.INTEGER, allowNull: true, field: 'empresa_id' })
+  @AllowNull(true)
+  @Column({ type: DataType.INTEGER, field: 'empresa_id' })
   declare empresaId: number | null;
 
   @ForeignKey(() => Servico)
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'servico_id' })
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'servico_id' })
   declare servicoId: number;
 
-  @Column({
-    type: DataType.ENUM(...Object.values(StatusSolicitacaoEnum)),
-    allowNull: false,
-    defaultValue: StatusSolicitacaoEnum.RECEBIDO,
-  })
-  declare status: StatusSolicitacaoEnum;
+  @Default(StatusSolicitacao.RECEBIDO)
+  @AllowNull(false)
+  @Column(DataType.ENUM(...Object.values(StatusSolicitacao)))
+  declare status: StatusSolicitacao;
 
-  @Column({ type: DataType.TEXT, allowNull: true, field: 'observacao_cliente' })
+  @AllowNull(true)
+  @Column({ type: DataType.TEXT, field: 'observacao_cliente' })
   declare observacaoCliente: string | null;
 
-  @Column({ type: DataType.TEXT, allowNull: true, field: 'observacao_admin' })
+  @AllowNull(true)
+  @Column({ type: DataType.TEXT, field: 'observacao_admin' })
   declare observacaoAdmin: string | null;
 
-  @Column({ type: DataType.DATE, allowNull: false, defaultValue: DataType.NOW, field: 'data_solicitacao' })
+  @AllowNull(false)
+  @Column({ type: DataType.DATE, defaultValue: DataType.NOW, field: 'data_solicitacao' })
   declare dataSolicitacao: Date;
 
-  @Column({ type: DataType.DATE, allowNull: true, field: 'data_conclusao' })
+  @AllowNull(true)
+  @Column({ type: DataType.DATE, field: 'data_conclusao' })
   declare dataConclusao: Date | null;
 
   @UpdatedAt
@@ -63,7 +67,7 @@ export class Solicitacao extends Model {
   declare updatedAt: Date;
 
   @DeletedAt
-  @Column({ type: DataType.DATE, allowNull: true, field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
 
   @BelongsTo(() => Servico, 'servicoId')

@@ -1,17 +1,15 @@
 import {
-  Table,
-  Column,
-  Model,
-  DataType,
-  ForeignKey,
-  BelongsTo,
-  CreatedAt,
-  UpdatedAt,
-  DeletedAt,
+  Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, ForeignKey, BelongsTo
 } from 'sequelize-typescript';
 import { Pagamento } from './pagamento.model.js';
-import { StatusParcelaEnum } from '../commons/enums/status-parcela.enum.js';
 import type { NonAttribute } from 'sequelize';
+
+export enum StatusParcela {
+  PAGO = 'pago',
+  ATRASADO = 'atrasado',
+  ATIVO = 'ativo',
+}
 
 @Table({
   tableName: 'parcela',
@@ -21,31 +19,31 @@ import type { NonAttribute } from 'sequelize';
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
-export class Parcela extends Model {
-  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+export class Parcela extends Model<Parcela> {
+  @PrimaryKey @AutoIncrement @Column(DataType.INTEGER)
   declare id: number;
 
   @ForeignKey(() => Pagamento)
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'id_pagamento' })
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'id_pagamento' })
   declare idPagamento: number;
 
-  @Column({ type: DataType.DECIMAL(10, 2), allowNull: false })
-  declare valor: string;
+  @AllowNull(false) @Column(DataType.DECIMAL(10, 2))
+  declare valor: number;
 
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'numero_parcela' })
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'numero_parcela' })
   declare numeroParcela: number;
 
-  @Column({
-    type: DataType.ENUM(...Object.values(StatusParcelaEnum)),
-    allowNull: false,
-    defaultValue: StatusParcelaEnum.ATIVO,
-  })
-  declare status: StatusParcelaEnum;
+  @Default(StatusParcela.ATIVO)
+  @AllowNull(false)
+  @Column(DataType.ENUM(...Object.values(StatusParcela)))
+  declare status: StatusParcela;
 
-  @Column({ type: DataType.DATEONLY, allowNull: false })
+  @AllowNull(false) @Column(DataType.DATEONLY)
   declare vencimento: string;
 
-  @Column({ type: DataType.DATEONLY, allowNull: true, field: 'data_pagamento' })
+  @AllowNull(true) @Column({ type: DataType.DATEONLY, field: 'data_pagamento' })
   declare dataPagamento: string | null;
 
   @CreatedAt
@@ -57,7 +55,7 @@ export class Parcela extends Model {
   declare updatedAt: Date;
 
   @DeletedAt
-  @Column({ type: DataType.DATE, allowNull: true, field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
 
   @BelongsTo(() => Pagamento, 'idPagamento')

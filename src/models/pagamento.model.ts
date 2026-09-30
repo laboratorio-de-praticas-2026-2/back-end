@@ -1,18 +1,15 @@
 import {
-  Table,
-  Column,
-  Model,
-  DataType,
-  ForeignKey,
-  BelongsTo,
-  HasMany,
-  CreatedAt,
-  UpdatedAt,
-  DeletedAt,
+  Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, HasMany
 } from 'sequelize-typescript';
 import { Obrigacao } from './obrigacao.model.js';
 import { Parcela } from './parcela.model.js';
 import type { NonAttribute } from 'sequelize';
+
+export enum TipoPagamento {
+  AVISTA = 'avista',
+  PARCELADO = 'parcelado',
+}
 
 @Table({
   tableName: 'pagamento',
@@ -22,31 +19,39 @@ import type { NonAttribute } from 'sequelize';
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
-export class Pagamento extends Model {
-  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+export class Pagamento extends Model<Pagamento> {
+  @PrimaryKey @AutoIncrement @Column(DataType.INTEGER)
   declare id: number;
 
-  // Prisma: idObrigacao. Atributo `obrigacaoId` mantido para casar com o service.
   @ForeignKey(() => Obrigacao)
-  @Column({ type: DataType.INTEGER, allowNull: false, unique: true, field: 'id_obrigacao' })
-  declare obrigacaoId: number;
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'id_obrigacao' })
+  declare idObrigacao: number;
 
-  @Column({ type: DataType.DECIMAL(10, 2), allowNull: false, field: 'valor_total' })
-  declare valorTotal: string;
+  @AllowNull(false)
+  @Column({ type: DataType.DECIMAL(10, 2), field: 'valor_total' })
+  declare valorTotal: number;
 
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'qtd_parcelas' })
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'qtd_parcelas' })
   declare qtdParcelas: number;
 
-  @Column({ type: DataType.ENUM('avista', 'parcelado'), allowNull: false, field: 'tipo_pagamento' })
-  declare tipoPagamento: 'avista' | 'parcelado';
+  @AllowNull(false)
+  @Column({
+    type: DataType.ENUM(...Object.values(TipoPagamento)),
+    field: 'tipo_pagamento',
+  })
+  declare tipoPagamento: TipoPagamento;
 
-  @Column({ type: DataType.STRING(100), allowNull: false, field: 'metodo_pagamento' })
+  @AllowNull(false)
+  @Column({ type: DataType.STRING(100), field: 'metodo_pagamento' })
   declare metodoPagamento: string;
 
-  @Column({ type: DataType.DECIMAL(10, 2), allowNull: false, defaultValue: 0 })
-  declare taxa: string;
+  @Default(0) @AllowNull(false) @Column(DataType.DECIMAL(10, 2))
+  declare taxa: number;
 
   @CreatedAt
+  @AllowNull(false)
   @Column({ type: DataType.DATE, field: 'created_at' })
   declare createdAt: Date;
 
@@ -55,10 +60,10 @@ export class Pagamento extends Model {
   declare updatedAt: Date;
 
   @DeletedAt
-  @Column({ type: DataType.DATE, allowNull: true, field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
 
-  @BelongsTo(() => Obrigacao, 'obrigacaoId')
+  @BelongsTo(() => Obrigacao, 'idObrigacao')
   declare obrigacao: NonAttribute<Obrigacao>;
 
   @HasMany(() => Parcela, 'idPagamento')

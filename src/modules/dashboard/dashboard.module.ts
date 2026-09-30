@@ -14,17 +14,32 @@ import { ServicosController } from './servicos.controller.js';
 import { ServicosService } from './servicos.service.js';
 import { GeralController } from './geral.controller.js';
 import { GeralService } from './geral.service.js';
+
+import { Usuario } from '../../models/usuario.model.js';
+import { Empresa } from '../../models/empresa.model.js';
+import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
+import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
+import { Obrigacao } from '../../models/obrigacao.model.js';
+import { Pagamento } from '../../models/pagamento.model.js';
+import { Parcela } from '../../models/parcela.model.js';
 import { Solicitacao } from '../../models/solicitacao.model.js';
 import { DocumentoSolicitacao } from '../../models/documento-solicitacao.model.js';
-import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
-import { Parcela } from '../../models/parcela.model.js';
+import { Servico } from '../../models/servico.model.js';
 
 @Module({
   imports: [
-    // Models injetados (@InjectModel) por SolicitacoesService e DocumentosService.
-    // Servico, Obrigacao e Pagamento só aparecem em `include`, mas precisam estar
-    // registrados na conexão principal (SequelizeModule.forRoot).
-    SequelizeModule.forFeature([Solicitacao, DocumentoSolicitacao, ObrigacaoServico, Parcela]),
+    SequelizeModule.forFeature([
+      Usuario,
+      Empresa,
+      ObrigacaoEmpresa,
+      ObrigacaoServico,
+      Obrigacao,
+      Pagamento,
+      Parcela,
+      Solicitacao,
+      DocumentoSolicitacao,
+      Servico,
+    ]),
   ],
   controllers: [
     FinanceiroController,
@@ -45,4 +60,4 @@ import { Parcela } from '../../models/parcela.model.js';
     GeralService,
   ],
 })
-export class DashboardModule {}
+export class DashboardModule { }

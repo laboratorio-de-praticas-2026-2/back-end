@@ -3,9 +3,12 @@ import {
   Column,
   Model,
   DataType,
+  PrimaryKey,
+  AutoIncrement,
+  AllowNull,
   ForeignKey,
   BelongsTo,
-  CreatedAt,
+  CreatedAt
 } from 'sequelize-typescript';
 import { Obrigacao } from './obrigacao.model.js';
 import { Servico } from './servico.model.js';
@@ -15,32 +18,34 @@ import type { NonAttribute } from 'sequelize';
 @Table({
   tableName: 'obrigacao_servico',
   timestamps: true,
-  paranoid: false,
-  createdAt: 'createdAt',
   updatedAt: false,
 })
-export class ObrigacaoServico extends Model {
-  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+export class ObrigacaoServico extends Model<ObrigacaoServico> {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
   declare id: number;
 
   @ForeignKey(() => Obrigacao)
-  @Column({ type: DataType.INTEGER, allowNull: false, unique: true, field: 'id_obrigacao' })
-  declare obrigacaoId: number;
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'id_obrigacao' })
+  declare idObrigacao: number;
 
   @ForeignKey(() => Servico)
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'id_servico' })
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'id_servico' })
   declare idServico: number;
 
-  // Atenção: a coluna é id_solicitacao (e não solicitacao_id)
   @ForeignKey(() => Solicitacao)
-  @Column({ type: DataType.INTEGER, allowNull: false, field: 'id_solicitacao' })
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, field: 'id_solicitacao' })
   declare solicitacaoId: number;
 
   @CreatedAt
   @Column({ type: DataType.DATE, field: 'created_at' })
   declare createdAt: Date;
 
-  @BelongsTo(() => Obrigacao, 'obrigacaoId')
+  @BelongsTo(() => Obrigacao, 'idObrigacao')
   declare obrigacao: NonAttribute<Obrigacao>;
 
   @BelongsTo(() => Servico, 'idServico')

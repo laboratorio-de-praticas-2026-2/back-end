@@ -1,16 +1,26 @@
 import {
-  Table,
-  Column,
-  Model,
-  DataType,
-  HasOne,
-  CreatedAt,
-  UpdatedAt,
-  DeletedAt,
+  Table, Column, Model, DataType, PrimaryKey, AutoIncrement,
+  AllowNull, Default, DeletedAt, CreatedAt, UpdatedAt, HasOne
 } from 'sequelize-typescript';
 import { ObrigacaoServico } from './obrigacao-servico.model.js';
 import { Pagamento } from './pagamento.model.js';
 import type { NonAttribute } from 'sequelize';
+
+export enum TipoObrigacao {
+  SERVICO = 'servico',
+  EMPRESA = 'empresa',
+}
+
+export enum StatusObrigacao {
+  PAGO = 'pago',
+  PENDENTE = 'pendente',
+}
+
+export enum NaturezaCobranca {
+  TRIBUTO = 'tributo',
+  MENSALIDADE = 'mensalidade',
+  SERVICO_AVULSO = 'servico_avulso',
+}
 
 @Table({
   tableName: 'obrigacao',
@@ -20,33 +30,40 @@ import type { NonAttribute } from 'sequelize';
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt',
 })
-export class Obrigacao extends Model {
-  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+export class Obrigacao extends Model<Obrigacao> {
+  @PrimaryKey @AutoIncrement @Column(DataType.INTEGER)
   declare id: number;
 
-  @Column({ type: DataType.ENUM('servico', 'empresa'), allowNull: false })
-  declare tipo: 'servico' | 'empresa';
+  @AllowNull(false)
+  @Column(DataType.ENUM(...Object.values(TipoObrigacao)))
+  declare tipo: TipoObrigacao;
 
-  @Column({ type: DataType.TEXT, allowNull: true })
+  @AllowNull(true)
+  @Column({
+    type: DataType.ENUM(...Object.values(NaturezaCobranca)),
+    field: 'natureza_cobranca',
+  })
+  declare naturezaCobranca: NaturezaCobranca | null;
+
+  @AllowNull(true) @Column(DataType.TEXT)
   declare descricao: string | null;
 
-  @Column({ type: DataType.DECIMAL(10, 2), allowNull: false })
-  declare valor: string;
+  @AllowNull(false) @Column(DataType.DECIMAL(10, 2))
+  declare valor: number;
 
-  @Column({ type: DataType.ENUM('pago', 'pendente'), allowNull: false, defaultValue: 'pendente' })
-  declare status: 'pago' | 'pendente';
+  @Default(StatusObrigacao.PENDENTE)
+  @AllowNull(false)
+  @Column(DataType.ENUM(...Object.values(StatusObrigacao)))
+  declare status: StatusObrigacao;
 
-  @Column({ type: DataType.DATEONLY, allowNull: true })
+  @AllowNull(true) @Column(DataType.DATEONLY)
   declare competencia: string | null;
 
-  @Column({ type: DataType.DATEONLY, allowNull: true })
+  @AllowNull(true) @Column(DataType.DATEONLY)
   declare vencimento: string | null;
 
-  // VARCHAR(100) livre no banco; valores esperados em NaturezaCobrancaEnum
-  @Column({ type: DataType.STRING(100), allowNull: true, field: 'natureza_cobranca' })
-  declare naturezaCobranca: string | null;
-
   @CreatedAt
+  @AllowNull(false)
   @Column({ type: DataType.DATE, field: 'created_at' })
   declare createdAt: Date;
 
@@ -55,12 +72,12 @@ export class Obrigacao extends Model {
   declare updatedAt: Date;
 
   @DeletedAt
-  @Column({ type: DataType.DATE, allowNull: true, field: 'deleted_at' })
+  @Column({ type: DataType.DATE, field: 'deleted_at' })
   declare deletedAt: Date | null;
 
-  @HasOne(() => ObrigacaoServico, 'obrigacaoId')
+  @HasOne(() => ObrigacaoServico, 'idObrigacao')
   declare obrigacaoServico: NonAttribute<ObrigacaoServico>;
 
-  @HasOne(() => Pagamento, 'obrigacaoId')
+  @HasOne(() => Pagamento, 'idObrigacao')
   declare pagamento: NonAttribute<Pagamento>;
 }
