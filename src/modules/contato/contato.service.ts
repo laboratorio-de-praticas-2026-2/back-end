@@ -4,7 +4,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 
-import { InjectModel } from '@nestjs/sequelize';
+import {
+  InjectModel,
+  InjectConnection,
+} from '@nestjs/sequelize';
+
 import { Sequelize } from 'sequelize-typescript';
 
 import { UpdateContatoDto } from './dto/update-contato.dto.js';
@@ -24,6 +28,7 @@ export class ContatoService {
     @InjectModel(Empresa)
     private readonly empresaModel: typeof Empresa,
 
+    @InjectConnection()
     private readonly sequelize: Sequelize,
   ) {}
 
@@ -31,8 +36,10 @@ export class ContatoService {
     whatsapp: '00 00000-0000',
     telefone: '11 1111-1111',
     email: 'portalcontabil@gmail.com.br',
-    endereco: 'R. Tamekishi Takano, 713 - Centro, Registro - SP, 11900-000',
-    horarioAtendimento: 'Segunda a Sexta, das 08:00 às 11:30, 13:00 às 18:00',
+    endereco:
+      'R. Tamekishi Takano, 713 - Centro, Registro - SP, 11900-000',
+    horarioAtendimento:
+      'Segunda a Sexta, das 08:00 às 11:30, 13:00 às 18:00',
   };
 
   async putContact(updateContatoDto: UpdateContatoDto) {
@@ -160,39 +167,44 @@ export class ContatoService {
     const resultado = await this.sequelize.transaction(
       async (transaction) => {
         // Criar usuário responsável
-        const novoUsuario = await this.usuarioModel.create(
-          {
-            nome: dto.nome,
-            email: emailNormalizado,
-            senha: senhaHash,
-            nivel: 'cliente',
-            cpfCnpj: cpfCnpjRespLimpo,
-            celular: dto.celular,
-          },
-          {
-            transaction,
-          },
-        );
+        const novoUsuario =
+          await this.usuarioModel.create(
+            {
+              nome: dto.nome,
+              email: emailNormalizado,
+              senha: senhaHash,
+              nivel: 'cliente',
+              cpfCnpj: cpfCnpjRespLimpo,
+              celular: dto.celular,
+            },
+            {
+              transaction,
+            },
+          );
 
         // Criar empresa vinculada ao usuário
-        const novaEmpresa = await this.empresaModel.create(
-          {
-            usuarioId: novoUsuario.id,
-            razaoSocial: dto.razaoSocial,
-            nomeFantasia: dto.nomeFantasia,
-            cnpj: cnpjLimpo,
-            regimeTributario:
-              dto.regimeTributario || 'simples_nacional',
-            inscricaoEstadual: dto.inscricaoEstadual,
-            inscricaoMunicipal: dto.inscricaoMunicipal,
-            dataAbertura: dto.dataAbertura
-              ? new Date(dto.dataAbertura)
-              : null,
-          },
-          {
-            transaction,
-          },
-        );
+        const novaEmpresa =
+          await this.empresaModel.create(
+            {
+              usuarioId: novoUsuario.id,
+              razaoSocial: dto.razaoSocial,
+              nomeFantasia: dto.nomeFantasia,
+              cnpj: cnpjLimpo,
+              regimeTributario:
+                dto.regimeTributario ||
+                'simples_nacional',
+              inscricaoEstadual:
+                dto.inscricaoEstadual,
+              inscricaoMunicipal:
+                dto.inscricaoMunicipal,
+              dataAbertura: dto.dataAbertura
+                ? new Date(dto.dataAbertura)
+                : null,
+            },
+            {
+              transaction,
+            },
+          );
 
         return {
           novoUsuario,
@@ -201,14 +213,17 @@ export class ContatoService {
       },
     );
 
-    const usuarioPlain = resultado.novoUsuario.get({
-      plain: true,
-    });
+    // Remover senha da resposta
+    const usuarioPlain =
+      resultado.novoUsuario.get({
+        plain: true,
+      });
 
     delete usuarioPlain.senha;
 
     return {
-      mensagem: 'Cadastro PJ realizado com sucesso.',
+      mensagem:
+        'Cadastro PJ realizado com sucesso.',
       usuario: usuarioPlain,
       empresa: resultado.novaEmpresa,
     };

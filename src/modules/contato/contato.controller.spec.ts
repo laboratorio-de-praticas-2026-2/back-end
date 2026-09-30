@@ -1,19 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/sequelize';
+import { getModelToken, getConnectionToken } from '@nestjs/sequelize';
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { Sequelize } from 'sequelize-typescript';
 
-import { ContatoController } from './contato.controller.js';
 import { ContatoService } from './contato.service.js';
 import { AuthService } from '../../commons/auth.service.js';
 
 import { Usuario } from './entities/usuario.entity.js';
 import { Empresa } from './entities/empresa.entity.js';
 
-import { AuthGuard } from '../auth/guards/auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-
-describe('ContatoController & ContatoService', () => {
-  let controller: ContatoController;
+describe('ContatoService', () => {
   let service: ContatoService;
 
   beforeEach(async () => {
@@ -21,16 +17,14 @@ describe('ContatoController & ContatoService', () => {
     const empresas: any[] = [];
 
     const usuarioModelMock = {
-      findOne: async ({ where }: any) => {
-        return (
-          usuarios.find((usuario) => usuario.email === where.email) ?? null
-        );
-      },
+      findOne: async ({ where }: any) =>
+        usuarios.find((u) => u.email === where.email) ?? null,
 
       create: async (dados: any) => {
         const novoUsuario = {
           id: usuarios.length + 1,
           ...dados,
+
           get: ({ plain }: { plain: boolean }) => ({
             id: novoUsuario.id,
             ...dados,
@@ -44,11 +38,8 @@ describe('ContatoController & ContatoService', () => {
     };
 
     const empresaModelMock = {
-      findOne: async ({ where }: any) => {
-        return (
-          empresas.find((empresa) => empresa.cnpj === where.cnpj) ?? null
-        );
-      },
+      findOne: async ({ where }: any) =>
+        empresas.find((e) => e.cnpj === where.cnpj) ?? null,
 
       create: async (dados: any) => {
         const novaEmpresa = {
@@ -62,40 +53,48 @@ describe('ContatoController & ContatoService', () => {
       },
     };
 
+    const sequelizeMock = {
+      transaction: async (callback: any) => callback(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [ContatoController],
       providers: [
         ContatoService,
+
         {
           provide: AuthService,
           useValue: {},
         },
+
+        // Sequelize usando @InjectConnection()
+        {
+          provide: getConnectionToken(),
+          useValue: sequelizeMock,
+        },
+
+        // Sequelize usando injeção pela classe Sequelize
+        {
+          provide: Sequelize,
+          useValue: sequelizeMock,
+        },
+
         {
           provide: getModelToken(Usuario),
           useValue: usuarioModelMock,
         },
+
         {
           provide: getModelToken(Empresa),
           useValue: empresaModelMock,
         },
       ],
-    })
-      .overrideGuard(AuthGuard)
-      .useValue({
-        canActivate: () => true,
-      })
-      .overrideGuard(RolesGuard)
-      .useValue({
-        canActivate: () => true,
-      })
-      .compile();
+    }).compile();
 
-    controller = module.get<ContatoController>(ContatoController);
     service = module.get<ContatoService>(ContatoService);
   });
 
   it('should be defined', () => {
-    expect(controller).toBeDefined();
+    expect(service).toBeDefined();
   });
 
   describe('cadastrarPj', () => {
@@ -118,8 +117,11 @@ describe('ContatoController & ContatoService', () => {
         'mensagem',
         'Cadastro PJ realizado com sucesso.',
       );
+
       expect(resultado.usuario).toHaveProperty('id');
+
       expect(resultado.usuario).not.toHaveProperty('senha');
+
       expect(resultado.empresa.cnpj).toBe('11222333000181');
     });
 
