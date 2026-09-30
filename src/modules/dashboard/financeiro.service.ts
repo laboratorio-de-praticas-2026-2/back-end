@@ -1,341 +1,436 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectModel } from '@nestjs/sequelize';
+import { Op } from 'sequelize';
+
+import {
+  Obrigacao,
+  NaturezaCobranca,
+  TipoObrigacao,
+} from '../../models/obrigacao.model.js';
+import { Pagamento } from '../../models/pagamento.model.js';
+import {
+  Parcela,
+  StatusParcela,
+} from '../../models/parcela.model.js';
+import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
+import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
+import { Empresa } from '../../models/empresa.model.js';
+import { Solicitacao } from '../../models/solicitacao.model.js';
+import { Usuario } from '../../models/usuario.model.js';
+import {
+  getHojeSP,
+  resolvePeriodo,
+} from '../../commons/utils/period.util.js';
 
 @Injectable()
 export class FinanceiroService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(FinanceiroService.name);
+
+  constructor(
+    @InjectModel(Obrigacao)
+    private readonly obrigacaoModel: typeof Obrigacao,
+    @InjectModel(Pagamento)
+    private readonly pagamentoModel: typeof Pagamento,
+    @InjectModel(Parcela)
+    private readonly parcelaModel: typeof Parcela,
+    @InjectModel(ObrigacaoEmpresa)
+    private readonly obrigacaoEmpresaModel: typeof ObrigacaoEmpresa,
+    @InjectModel(ObrigacaoServico)
+    private readonly obrigacaoServicoModel: typeof ObrigacaoServico,
+    @InjectModel(Empresa)
+    private readonly empresaModel: typeof Empresa,
+    @InjectModel(Solicitacao)
+    private readonly solicitacaoModel: typeof Solicitacao,
+    @InjectModel(Usuario)
+    private readonly usuarioModel: typeof Usuario,
+  ) {}
 
   async getDashboardFinanceiro(startDate?: string, endDate?: string) {
-    const period = this.parseAndValidatePeriod(startDate, endDate);
+    const periodo = resolvePeriodo(startDate, endDate);
+    const inicio = periodo.start.toISOString().slice(0, 10);
+    const fim = periodo.endExclusive.toISOString().slice(0, 10);
 
-    const faturamentoRecebidoRow = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT COALESCE(SUM(p.valor), 0) AS total
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'pago'
-          AND p.data_pagamento IS NOT NULL
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') >= ?
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ total: string | number }>;
+    const hoje = getHojeSP();
+    const dataHoje = hoje.toISOString().slice(0, 10);
 
-    const faturamentoRecebido = Number(Number(faturamentoRecebidoRow[0]?.total ?? 0).toFixed(2));
+    const limitePrevisao = new Date(hoje);
+    limitePrevisao.setUTCDate(limitePrevisao.getUTCDate() + 30);
+    const dataLimite = limitePrevisao.toISOString().slice(0, 10);
 
-    const ticketRow = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          COALESCE(SUM(p.valor), 0) AS receita_clientes,
-          COUNT(DISTINCT u.id) AS qtd_clientes
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        LEFT JOIN obrigacao_empresas oe ON oe.obrigacao_id = o.id
-        LEFT JOIN empresas emp ON emp.id = oe.empresa_id
-        LEFT JOIN obrigacao_servicos os ON os.obrigacao_id = o.id
-        LEFT JOIN solicitacoes sol ON sol.id = os.solicitacao_id
-        LEFT JOIN usuarios u ON (
-          (o.tipo = 'empresa' AND emp.usuario_id = u.id) OR
-          (o.tipo = 'servico' AND sol.usuario_id = u.id)
-        )
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'pago'
-          AND p.data_pagamento IS NOT NULL
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') >= ?
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-          AND u.id IS NOT NULL
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ receita_clientes: string | number; qtd_clientes: string | number }>;
+    const obrigacoes = await this.obrigacaoModel.findAll({
+      where: {
+        deletedAt: null,
+        naturezaCobranca: {
+          [Op.in]: [
+            NaturezaCobranca.MENSALIDADE,
+            NaturezaCobranca.SERVICO_AVULSO,
+          ],
+        },
+      },
+    });
 
-    const receitaClientes = Number(ticketRow[0]?.receita_clientes ?? 0);
-    const qtdClientesDistintos = Number(ticketRow[0]?.qtd_clientes ?? 0);
-    const ticketMedio = qtdClientesDistintos > 0 ? Number((receitaClientes / qtdClientesDistintos).toFixed(2)) : 0;
+    const pagamentos = obrigacoes.length
+      ? await this.pagamentoModel.findAll({
+          where: {
+            deletedAt: null,
+            idObrigacao: {
+              [Op.in]: obrigacoes.map((item) => item.id),
+            },
+          },
+        })
+      : [];
 
-    const aReceberRow = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT COALESCE(SUM(p.valor), 0) AS total
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status IN ('ativo', 'atrasado')
-          AND DATE(p.vencimento) >= ?
-          AND DATE(p.vencimento) <= ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-      `,
-      period.startDate,
-      period.endDate,
-    ) as Array<{ total: string | number }>;
-    const aReceber = Number(Number(aReceberRow[0]?.total ?? 0).toFixed(2));
+    const parcelas = pagamentos.length
+      ? await this.parcelaModel.findAll({
+          where: {
+            deletedAt: null,
+            idPagamento: {
+              [Op.in]: pagamentos.map((item) => item.id),
+            },
+            [Op.or]: [
+              {
+                status: StatusParcela.PAGO,
+                dataPagamento: {
+                  [Op.gte]: inicio,
+                  [Op.lt]: fim,
+                },
+              },
+              {
+                status: {
+                  [Op.in]: [
+                    StatusParcela.ATIVO,
+                    StatusParcela.ATRASADO,
+                  ],
+                },
+                [Op.or]: [
+                  {
+                    vencimento: {
+                      [Op.gte]: inicio,
+                      [Op.lt]: fim,
+                    },
+                  },
+                  {
+                    vencimento: { [Op.lt]: dataLimite },
+                  },
+                ],
+              },
+            ],
+          },
+        })
+      : [];
 
-    const receitaExtrasRow = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT COALESCE(SUM(p.valor), 0) AS total
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'pago'
-          AND p.data_pagamento IS NOT NULL
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') >= ?
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') < ?
-          AND o.natureza_cobranca = 'servico_avulso'
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ total: string | number }>;
-    const receitaServicosExtras = Number(Number(receitaExtrasRow[0]?.total ?? 0).toFixed(2));
+    const obrigacaoPorId = new Map(
+      obrigacoes.map((item) => [item.id, item]),
+    );
+    const pagamentoPorId = new Map(
+      pagamentos.map((item) => [item.id, item]),
+    );
 
-    const historicoRows = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          DATE_FORMAT(CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00'), '%Y-%m') AS mes,
-          COALESCE(SUM(p.valor), 0) AS valor
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'pago'
-          AND p.data_pagamento IS NOT NULL
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') >= ?
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-        GROUP BY DATE_FORMAT(CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00'), '%Y-%m')
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ mes: string; valor: string | number }>;
+    const obrigacoesRecebidas = new Set<number>();
 
-    const historicoMap = new Map<string, number>();
-    for (const row of historicoRows) {
-      historicoMap.set(String(row.mes), Number(Number(row.valor ?? 0).toFixed(2)));
-    }
+    for (const parcela of parcelas) {
+      if (parcela.status !== StatusParcela.PAGO) continue;
 
-    const historicoMensal = period.monthsInPeriod.map((mes) => ({
-      mes,
-      valor: Number((historicoMap.get(mes) ?? 0).toFixed(2)),
-    }));
-
-    const metodoRows = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          LOWER(TRIM(COALESCE(pag.metodo_pagamento, ''))) AS metodo,
-          COALESCE(SUM(p.valor), 0) AS valor
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'pago'
-          AND p.data_pagamento IS NOT NULL
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') >= ?
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-        GROUP BY LOWER(TRIM(COALESCE(pag.metodo_pagamento, '')))
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ metodo: string; valor: string | number }>;
-
-    let pix = 0;
-    let boleto = 0;
-    let cartao = 0;
-    let outros = 0;
-
-    for (const row of metodoRows) {
-      const valor = Number(row.valor ?? 0);
-      const metodo = String(row.metodo ?? '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-
-      if (metodo === 'pix') pix += valor;
-      else if (metodo === 'boleto') boleto += valor;
-      else if (['cartao', 'cartao de credito', 'cartao de debito', 'credito', 'debito', 'cartao_credito', 'cartao_debito'].includes(metodo)) {
-        cartao += valor;
-      } else {
-        outros += valor;
+      const pagamento = pagamentoPorId.get(parcela.idPagamento);
+      if (pagamento) {
+        obrigacoesRecebidas.add(pagamento.idObrigacao);
       }
     }
 
-    const distribuicaoMetodoPagamento = {
-      pix: faturamentoRecebido > 0 ? Number(((pix / faturamentoRecebido) * 100).toFixed(2)) : 0,
-      boleto: faturamentoRecebido > 0 ? Number(((boleto / faturamentoRecebido) * 100).toFixed(2)) : 0,
-      cartao: faturamentoRecebido > 0 ? Number(((cartao / faturamentoRecebido) * 100).toFixed(2)) : 0,
-      outros: faturamentoRecebido > 0 ? Number(((outros / faturamentoRecebido) * 100).toFixed(2)) : 0,
-    };
+    const clientePorObrigacao = await this.buscarClientes(
+      obrigacoes.filter((item) => obrigacoesRecebidas.has(item.id)),
+    );
 
-    const tipoRows = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          o.natureza_cobranca AS natureza,
-          COALESCE(SUM(p.valor), 0) AS valor
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'pago'
-          AND p.data_pagamento IS NOT NULL
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') >= ?
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-        GROUP BY o.natureza_cobranca
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ natureza: string; valor: string | number }>;
+    const historico = new Map<string, bigint>();
+    const cursor = new Date(periodo.start);
+    cursor.setUTCDate(1);
 
-    let mensalidadeFixa = 0;
-    let servicosAvulsos = 0;
-
-    for (const row of tipoRows) {
-      const valor = Number(row.valor ?? 0);
-      if (row.natureza === 'mensalidade') mensalidadeFixa += valor;
-      if (row.natureza === 'servico_avulso') servicosAvulsos += valor;
+    while (cursor < periodo.endExclusive) {
+      historico.set(cursor.toISOString().slice(0, 7), 0n);
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
     }
 
-    const distribuicaoTipoPagamento = {
-      mensalidadeFixa: faturamentoRecebido > 0 ? Number(((mensalidadeFixa / faturamentoRecebido) * 100).toFixed(2)) : 0,
-      servicosAvulsos: faturamentoRecebido > 0 ? Number(((servicosAvulsos / faturamentoRecebido) * 100).toFixed(2)) : 0,
+    let recebido = 0n;
+    let aReceber = 0n;
+    let extras = 0n;
+    let receitaClientes = 0n;
+    let mensalidades = 0n;
+    let previsao = 0n;
+    let vencido = 0n;
+    let parcelasProximas = 0;
+    let parcelasEmAtraso = 0;
+
+    const clientes = new Set<number>();
+    const vinculosAusentes = new Set<number>();
+
+    const metodos = {
+      pix: 0n,
+      boleto: 0n,
+      cartao: 0n,
+      outros: 0n,
     };
 
-    const previsaoRow = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          COALESCE(SUM(p.valor), 0) AS valor,
-          COUNT(p.id) AS parcelas
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status IN ('ativo', 'atrasado')
-          AND DATE(p.vencimento) >= ?
-          AND DATE(p.vencimento) <= ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-      `,
-      period.todayStr,
-      period.todayPlus30Str,
-    ) as Array<{ valor: string | number; parcelas: string | number }>;
+    for (const parcela of parcelas) {
+      const pagamento = pagamentoPorId.get(parcela.idPagamento);
+      if (!pagamento) continue;
 
-    const inadimplenciaRow = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          COALESCE(SUM(p.valor), 0) AS valor,
-          COUNT(p.id) AS parcelas
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
-          AND p.status IN ('ativo', 'atrasado')
-          AND DATE(p.vencimento) < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-      `,
-      period.todayStr,
-    ) as Array<{ valor: string | number; parcelas: string | number }>;
+      const obrigacao = obrigacaoPorId.get(pagamento.idObrigacao);
+      if (!obrigacao) continue;
+
+      const valor = this.centavos(parcela.valor);
+
+      if (parcela.status === StatusParcela.PAGO) {
+        const data = parcela.dataPagamento;
+
+        if (!data || data < inicio || data >= fim) continue;
+
+        recebido += valor;
+
+        const mes = data.slice(0, 7);
+        historico.set(mes, (historico.get(mes) ?? 0n) + valor);
+
+        if (
+          obrigacao.naturezaCobranca ===
+          NaturezaCobranca.SERVICO_AVULSO
+        ) {
+          extras += valor;
+        } else {
+          mensalidades += valor;
+        }
+
+        const metodo = this.normalizarMetodo(
+          pagamento.metodoPagamento,
+        );
+        metodos[metodo] += valor;
+
+        const clienteId = clientePorObrigacao.get(obrigacao.id);
+
+        if (clienteId !== undefined) {
+          clientes.add(clienteId);
+          receitaClientes += valor;
+        } else {
+          vinculosAusentes.add(obrigacao.id);
+        }
+
+        continue;
+      }
+
+      if (
+        parcela.status !== StatusParcela.ATIVO &&
+        parcela.status !== StatusParcela.ATRASADO
+      ) {
+        continue;
+      }
+
+      const vencimento = parcela.vencimento;
+
+      if (vencimento >= inicio && vencimento < fim) {
+        aReceber += valor;
+      }
+
+      if (vencimento >= dataHoje && vencimento < dataLimite) {
+        previsao += valor;
+        parcelasProximas++;
+      }
+
+      if (vencimento < dataHoje) {
+        vencido += valor;
+        parcelasEmAtraso++;
+      }
+    }
+
+    for (const id of vinculosAusentes) {
+      this.logger.warn(
+        `Obrigação ${id} sem vínculo válido de cliente. ` +
+          'Receita mantida no total e excluída do ticket médio.',
+      );
+    }
 
     return {
-      faturamentoRecebido,
-      aReceber,
-      receitaServicosExtras,
-      ticketMedio,
+      faturamentoRecebido: this.reais(recebido),
+      aReceber: this.reais(aReceber),
+      receitaServicosExtras: this.reais(extras),
+      ticketMedio: this.dividir(
+        receitaClientes,
+        BigInt(clientes.size),
+      ),
       graficos: {
-        historicoMensal,
-        distribuicaoMetodoPagamento,
-        distribuicaoTipoPagamento,
+        historicoMensal: Array.from(historico, ([mes, valor]) => ({
+          mes,
+          valor: this.reais(valor),
+        })),
+        distribuicaoMetodoPagamento: {
+          pix: this.percentual(metodos.pix, recebido),
+          boleto: this.percentual(metodos.boleto, recebido),
+          cartao: this.percentual(metodos.cartao, recebido),
+          outros: this.percentual(metodos.outros, recebido),
+        },
+        distribuicaoTipoPagamento: {
+          mensalidadeFixa: this.percentual(mensalidades, recebido),
+          servicosAvulsos: this.percentual(extras, recebido),
+        },
       },
       previsaoReceita30Dias: {
-        valor: Number(Number(previsaoRow[0]?.valor ?? 0).toFixed(2)),
-        parcelasProximas: Number(previsaoRow[0]?.parcelas ?? 0),
+        valor: this.reais(previsao),
+        parcelasProximas,
       },
       inadimplencia: {
-        valorTotalVencido: Number(Number(inadimplenciaRow[0]?.valor ?? 0).toFixed(2)),
-        parcelasEmAtraso: Number(inadimplenciaRow[0]?.parcelas ?? 0),
+        valorTotalVencido: this.reais(vencido),
+        parcelasEmAtraso,
       },
     };
   }
 
-  private parseAndValidatePeriod(startDate?: string, endDate?: string) {
-    if ((startDate && !endDate) || (!startDate && endDate)) {
-      throw new BadRequestException('startDate e endDate devem ser fornecidos juntos.');
+  private async buscarClientes(
+    obrigacoes: Obrigacao[],
+  ): Promise<Map<number, number>> {
+    const idsEmpresa = obrigacoes
+      .filter((item) => item.tipo === TipoObrigacao.EMPRESA)
+      .map((item) => item.id);
+
+    const idsServico = obrigacoes
+      .filter((item) => item.tipo === TipoObrigacao.SERVICO)
+      .map((item) => item.id);
+
+    const [vinculosEmpresa, vinculosServico] = await Promise.all([
+      idsEmpresa.length
+        ? this.obrigacaoEmpresaModel.findAll({
+            where: { idObrigacao: { [Op.in]: idsEmpresa } },
+          })
+        : Promise.resolve([]),
+      idsServico.length
+        ? this.obrigacaoServicoModel.findAll({
+            where: { idObrigacao: { [Op.in]: idsServico } },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const [empresas, solicitacoes] = await Promise.all([
+      vinculosEmpresa.length
+        ? this.empresaModel.findAll({
+            attributes: ['id', 'usuarioId'],
+            where: {
+              id: {
+                [Op.in]: vinculosEmpresa.map((item) => item.idEmpresa),
+              },
+            },
+            paranoid: false,
+          })
+        : Promise.resolve([]),
+      vinculosServico.length
+        ? this.solicitacaoModel.findAll({
+            attributes: ['id', 'usuarioId'],
+            where: {
+              id: {
+                [Op.in]: vinculosServico.map(
+                  (item) => item.solicitacaoId,
+                ),
+              },
+            },
+            paranoid: false,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const usuarioPorEmpresa = new Map(
+      empresas.map((item) => [item.id, item.usuarioId]),
+    );
+    const usuarioPorSolicitacao = new Map(
+      solicitacoes.map((item) => [item.id, item.usuarioId]),
+    );
+
+    const candidatos = new Map<number, number>();
+
+    for (const vinculo of vinculosEmpresa) {
+      const usuarioId = usuarioPorEmpresa.get(vinculo.idEmpresa);
+      if (usuarioId !== undefined) {
+        candidatos.set(vinculo.idObrigacao, usuarioId);
+      }
     }
 
-    const dateRegex = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-
-    const addDays = (value: string, days: number) => {
-      const [year, month, day] = value.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      date.setDate(date.getDate() + days);
-      const formattedYear = date.getFullYear();
-      const formattedMonth = String(date.getMonth() + 1).padStart(2, '0');
-      const formattedDay = String(date.getDate()).padStart(2, '0');
-      return `${formattedYear}-${formattedMonth}-${formattedDay}`;
-    };
-
-    const isValidCalendarDate = (value: string) => {
-      if (!dateRegex.test(value)) return false;
-      const [year, month, day] = value.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-    };
-
-    const getTodaySP = () => {
-      const now = new Date();
-      const value = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-      const year = value.getFullYear();
-      const month = String(value.getMonth() + 1).padStart(2, '0');
-      const day = String(value.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    let start = startDate ?? '';
-    let end = endDate ?? '';
-    const todayStr = getTodaySP();
-
-    if (!start || !end) {
-      const [year, month] = todayStr.split('-');
-      start = `${year}-${month}-01`;
-      end = todayStr;
-    } else if (!isValidCalendarDate(start) || !isValidCalendarDate(end)) {
-      throw new BadRequestException('Formato de data inválido ou data inexistente. Utilize YYYY-MM-DD.');
+    for (const vinculo of vinculosServico) {
+      const usuarioId = usuarioPorSolicitacao.get(
+        vinculo.solicitacaoId,
+      );
+      if (usuarioId !== undefined) {
+        candidatos.set(vinculo.idObrigacao, usuarioId);
+      }
     }
 
-    if (start > end) {
-      throw new BadRequestException('A data de início não pode ser posterior à data de fim.');
+    const idsUsuarios = [...new Set(candidatos.values())];
+
+    const usuarios = idsUsuarios.length
+      ? await this.usuarioModel.findAll({
+          attributes: ['id'],
+          where: { id: { [Op.in]: idsUsuarios } },
+          paranoid: false,
+        })
+      : [];
+
+    const usuariosExistentes = new Set(
+      usuarios.map((item) => item.id),
+    );
+
+    return new Map(
+      [...candidatos].filter(([, id]) => usuariosExistentes.has(id)),
+    );
+  }
+
+  private normalizarMetodo(
+    valor: string | null | undefined,
+  ): 'pix' | 'boleto' | 'cartao' | 'outros' {
+    const metodo = String(valor ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+    if (metodo === 'pix') return 'pix';
+    if (metodo === 'boleto') return 'boleto';
+
+    if (
+      ['cartao', 'cartao de credito', 'cartao de debito'].includes(
+        metodo,
+      )
+    ) {
+      return 'cartao';
     }
 
-    const todayPlus30Str = addDays(todayStr, 30);
-    const startDateTime = `${start} 00:00:00`;
-    const endDateTime = `${addDays(end, 1)} 00:00:00`;
+    return 'outros';
+  }
 
-    const monthsInPeriod: string[] = [];
-    const startMonth = new Date(`${start.substring(0, 7)}-01T00:00:00`);
-    const endMonth = new Date(`${end.substring(0, 7)}-01T00:00:00`);
-    const cursor = new Date(startMonth);
+  private centavos(valor: string | number): bigint {
+    const partes = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(
+      String(valor),
+    );
 
-    while (cursor <= endMonth) {
-      const year = cursor.getFullYear();
-      const month = String(cursor.getMonth() + 1).padStart(2, '0');
-      monthsInPeriod.push(`${year}-${month}`);
-      cursor.setMonth(cursor.getMonth() + 1);
+    if (!partes) {
+      throw new Error('Valor monetário inválido retornado pelo banco.');
     }
 
-    return {
-      startDate: start,
-      endDate: end,
-      startDateTime,
-      endDateTime,
-      todayStr,
-      todayPlus30Str,
-      monthsInPeriod,
-    };
+    const inteiro = BigInt(partes[2]) * 100n;
+    const decimal = BigInt((partes[3] ?? '').padEnd(2, '0'));
+
+    return (partes[1] ? -1n : 1n) * (inteiro + decimal);
+  }
+
+  private reais(centavos: bigint): number {
+    return Number(centavos) / 100;
+  }
+
+  private dividir(numerador: bigint, denominador: bigint): number {
+    if (denominador === 0n) return 0;
+
+    const sinal = numerador < 0n ? -1n : 1n;
+    const absoluto = numerador * sinal;
+    const arredondado =
+      (absoluto * 2n + denominador) / (denominador * 2n);
+
+    return this.reais(arredondado * sinal);
+  }
+
+  private percentual(parte: bigint, total: bigint): number {
+    return total > 0n ? this.dividir(parte * 10000n, total) : 0;
   }
 }

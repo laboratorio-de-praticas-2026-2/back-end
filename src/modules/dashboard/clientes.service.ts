@@ -1,165 +1,359 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectModel } from '@nestjs/sequelize';
+import { Op } from 'sequelize';
+
+import {
+  Obrigacao,
+  NaturezaCobranca,
+  TipoObrigacao,
+} from '../../models/obrigacao.model.js';
+import { Pagamento } from '../../models/pagamento.model.js';
+import {
+  Parcela,
+  StatusParcela,
+} from '../../models/parcela.model.js';
+import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
+import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
+import { Empresa } from '../../models/empresa.model.js';
+import {
+  Solicitacao,
+  StatusSolicitacao,
+} from '../../models/solicitacao.model.js';
+import { Usuario } from '../../models/usuario.model.js';
+import {
+  getHojeSP,
+  resolvePeriodo,
+} from '../../commons/utils/period.util.js';
 
 @Injectable()
 export class ClientesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ClientesService.name);
+
+  constructor(
+    @InjectModel(Obrigacao)
+    private readonly obrigacaoModel: typeof Obrigacao,
+    @InjectModel(Pagamento)
+    private readonly pagamentoModel: typeof Pagamento,
+    @InjectModel(Parcela)
+    private readonly parcelaModel: typeof Parcela,
+    @InjectModel(ObrigacaoEmpresa)
+    private readonly obrigacaoEmpresaModel: typeof ObrigacaoEmpresa,
+    @InjectModel(ObrigacaoServico)
+    private readonly obrigacaoServicoModel: typeof ObrigacaoServico,
+    @InjectModel(Empresa)
+    private readonly empresaModel: typeof Empresa,
+    @InjectModel(Solicitacao)
+    private readonly solicitacaoModel: typeof Solicitacao,
+    @InjectModel(Usuario)
+    private readonly usuarioModel: typeof Usuario,
+  ) {}
 
   async getDashboardClientes(startDate?: string, endDate?: string) {
-    const period = this.parseAndValidatePeriod(startDate, endDate);
+    const periodo = resolvePeriodo(startDate, endDate);
+    const inicio = periodo.start.toISOString().slice(0, 10);
+    const fim = periodo.endExclusive.toISOString().slice(0, 10);
+    const hoje = getHojeSP().toISOString().slice(0, 10);
 
-    const topServicos = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          u.id AS clienteId,
-          u.nome AS clienteNome,
-          COUNT(s.id) AS quantidadeServicos
-        FROM solicitacoes s
-        INNER JOIN usuarios u ON u.id = s.usuario_id
-        WHERE s.deleted_at IS NULL
-          AND s.status != 'cancelado'
-          AND s.data_solicitacao >= ?
-          AND s.data_solicitacao < ?
-        GROUP BY u.id, u.nome
-        ORDER BY quantidadeServicos DESC, clienteId ASC
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ clienteId: number; clienteNome: string; quantidadeServicos: number }>;
+    // Datas com horário: meia-noite de São Paulo convertida em instante.
+    const inicioSolicitacoes = this.inicioDiaSP(inicio);
+    const fimSolicitacoes = this.inicioDiaSP(fim);
 
-    const topRentaveis = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          u.id AS clienteId,
-          u.nome AS clienteNome,
-          COALESCE(SUM(p.valor), 0) AS totalFaturado
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        LEFT JOIN obrigacao_empresas oe ON oe.obrigacao_id = o.id
-        LEFT JOIN empresas emp ON emp.id = oe.empresa_id
-        LEFT JOIN obrigacao_servicos os ON os.obrigacao_id = o.id
-        LEFT JOIN solicitacoes sol ON sol.id = os.solicitacao_id
-        LEFT JOIN usuarios u ON (
-          (o.tipo = 'empresa' AND emp.usuario_id = u.id) OR
-          (o.tipo = 'servico' AND sol.usuario_id = u.id)
-        )
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'pago'
-          AND p.data_pagamento IS NOT NULL
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') >= ?
-          AND CONVERT_TZ(p.data_pagamento, '+00:00', '-03:00') < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-          AND u.id IS NOT NULL
-        GROUP BY u.id, u.nome
-        ORDER BY totalFaturado DESC, clienteId ASC
-      `,
-      period.startDateTime,
-      period.endDateTime,
-    ) as Array<{ clienteId: number; clienteNome: string; totalFaturado: number }>;
+    const [solicitacoesPeriodo, obrigacoes] = await Promise.all([
+      this.solicitacaoModel.findAll({
+        attributes: ['id', 'usuarioId'],
+        where: {
+          deletedAt: null,
+          status: { [Op.ne]: StatusSolicitacao.CANCELADO },
+          dataSolicitacao: {
+            [Op.gte]: inicioSolicitacoes,
+            [Op.lt]: fimSolicitacoes,
+          },
+        },
+      }),
+      this.obrigacaoModel.findAll({
+        attributes: ['id', 'tipo'],
+        where: {
+          deletedAt: null,
+          naturezaCobranca: {
+            [Op.in]: [
+              NaturezaCobranca.MENSALIDADE,
+              NaturezaCobranca.SERVICO_AVULSO,
+            ],
+          },
+        },
+      }),
+    ]);
 
-    const clientesInadimplentes = await this.prisma.$queryRawUnsafe(
-      `
-        SELECT
-          u.id AS clienteId,
-          u.nome AS clienteNome,
-          COALESCE(SUM(p.valor), 0) AS valorEmAtraso
-        FROM parcelas p
-        INNER JOIN pagamentos pag ON pag.id = p.pagamento_id AND pag.deleted_at IS NULL
-        INNER JOIN obrigacoes o ON o.id = pag.obrigacao_id AND o.deleted_at IS NULL
-        LEFT JOIN obrigacao_empresas oe ON oe.obrigacao_id = o.id
-        LEFT JOIN empresas emp ON emp.id = oe.empresa_id
-        LEFT JOIN obrigacao_servicos os ON os.obrigacao_id = o.id
-        LEFT JOIN solicitacoes sol ON sol.id = os.solicitacao_id
-        LEFT JOIN usuarios u ON (
-          (o.tipo = 'empresa' AND emp.usuario_id = u.id) OR
-          (o.tipo = 'servico' AND sol.usuario_id = u.id)
-        )
-        WHERE p.deleted_at IS NULL
-          AND p.status IN ('ativo', 'atrasado')
-          AND DATE(p.vencimento) < ?
-          AND o.natureza_cobranca IN ('mensalidade', 'servico_avulso')
-          AND u.id IS NOT NULL
-        GROUP BY u.id, u.nome
-        ORDER BY valorEmAtraso DESC, clienteId ASC
-      `,
-      period.todayStr,
-    ) as Array<{ clienteId: number; clienteNome: string; valorEmAtraso: number }>;
+    const pagamentos = obrigacoes.length
+      ? await this.pagamentoModel.findAll({
+          attributes: ['id', 'idObrigacao'],
+          where: {
+            deletedAt: null,
+            idObrigacao: {
+              [Op.in]: obrigacoes.map((item) => item.id),
+            },
+          },
+        })
+      : [];
+
+    const parcelas = pagamentos.length
+      ? await this.parcelaModel.findAll({
+          attributes: ['id', 'idPagamento', 'valor', 'status'],
+          where: {
+            deletedAt: null,
+            idPagamento: {
+              [Op.in]: pagamentos.map((item) => item.id),
+            },
+            [Op.or]: [
+              {
+                status: StatusParcela.PAGO,
+                dataPagamento: {
+                  [Op.gte]: inicio,
+                  [Op.lt]: fim,
+                },
+              },
+              {
+                status: {
+                  [Op.in]: [
+                    StatusParcela.ATIVO,
+                    StatusParcela.ATRASADO,
+                  ],
+                },
+                vencimento: { [Op.lt]: hoje },
+              },
+            ],
+          },
+        })
+      : [];
+
+    const pagamentoPorId = new Map(
+      pagamentos.map((item) => [item.id, item]),
+    );
+
+    const idsObrigacoes = new Set<number>();
+
+    for (const parcela of parcelas) {
+      const pagamento = pagamentoPorId.get(parcela.idPagamento);
+
+      if (pagamento) {
+        idsObrigacoes.add(pagamento.idObrigacao);
+      }
+    }
+
+    const obrigacoesElegiveis = obrigacoes.filter((item) =>
+      idsObrigacoes.has(item.id),
+    );
+
+    const idsEmpresa = obrigacoesElegiveis
+      .filter((item) => item.tipo === TipoObrigacao.EMPRESA)
+      .map((item) => item.id);
+
+    const idsServico = obrigacoesElegiveis
+      .filter((item) => item.tipo === TipoObrigacao.SERVICO)
+      .map((item) => item.id);
+
+    const [vinculosEmpresa, vinculosServico] = await Promise.all([
+      idsEmpresa.length
+        ? this.obrigacaoEmpresaModel.findAll({
+            where: { idObrigacao: { [Op.in]: idsEmpresa } },
+          })
+        : Promise.resolve([]),
+      idsServico.length
+        ? this.obrigacaoServicoModel.findAll({
+            where: { idObrigacao: { [Op.in]: idsServico } },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    // Cadastros excluídos logicamente não apagam operações preservadas.
+    const [empresas, solicitacoesVinculadas] = await Promise.all([
+      vinculosEmpresa.length
+        ? this.empresaModel.findAll({
+            attributes: ['id', 'usuarioId'],
+            where: {
+              id: {
+                [Op.in]: vinculosEmpresa.map((item) => item.idEmpresa),
+              },
+            },
+            paranoid: false,
+          })
+        : Promise.resolve([]),
+      vinculosServico.length
+        ? this.solicitacaoModel.findAll({
+            attributes: ['id', 'usuarioId'],
+            where: {
+              id: {
+                [Op.in]: vinculosServico.map(
+                  (item) => item.solicitacaoId,
+                ),
+              },
+            },
+            paranoid: false,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const usuarioPorEmpresa = new Map(
+      empresas.map((item) => [item.id, item.usuarioId]),
+    );
+    const usuarioPorSolicitacao = new Map(
+      solicitacoesVinculadas.map((item) => [item.id, item.usuarioId]),
+    );
+    const clientePorObrigacao = new Map<number, number>();
+
+    for (const vinculo of vinculosEmpresa) {
+      const usuarioId = usuarioPorEmpresa.get(vinculo.idEmpresa);
+
+      if (usuarioId !== undefined) {
+        clientePorObrigacao.set(vinculo.idObrigacao, usuarioId);
+      }
+    }
+
+    for (const vinculo of vinculosServico) {
+      const usuarioId = usuarioPorSolicitacao.get(
+        vinculo.solicitacaoId,
+      );
+
+      if (usuarioId !== undefined) {
+        clientePorObrigacao.set(vinculo.idObrigacao, usuarioId);
+      }
+    }
+
+    const idsUsuarios = [
+      ...new Set([
+        ...clientePorObrigacao.values(),
+        ...solicitacoesPeriodo.map((item) => item.usuarioId),
+      ]),
+    ];
+
+    const usuarios = idsUsuarios.length
+      ? await this.usuarioModel.findAll({
+          attributes: ['id', 'nome'],
+          where: { id: { [Op.in]: idsUsuarios } },
+          paranoid: false,
+        })
+      : [];
+
+    const nomePorUsuario = new Map(
+      usuarios.map((item) => [item.id, item.nome]),
+    );
+
+    const quantidadePorCliente = new Map<number, number>();
+    const receitaPorCliente = new Map<number, bigint>();
+    const atrasoPorCliente = new Map<number, bigint>();
+    const vinculosAusentes = new Set<number>();
+
+    for (const solicitacao of solicitacoesPeriodo) {
+      const id = solicitacao.usuarioId;
+      if (!nomePorUsuario.has(id)) continue;
+
+      quantidadePorCliente.set(
+        id,
+        (quantidadePorCliente.get(id) ?? 0) + 1,
+      );
+    }
+
+    for (const parcela of parcelas) {
+      const pagamento = pagamentoPorId.get(parcela.idPagamento);
+      if (!pagamento) continue;
+
+      const clienteId = clientePorObrigacao.get(
+        pagamento.idObrigacao,
+      );
+
+      if (
+        clienteId === undefined ||
+        !nomePorUsuario.has(clienteId)
+      ) {
+        vinculosAusentes.add(pagamento.idObrigacao);
+        continue;
+      }
+
+      const valor = this.centavos(parcela.valor);
+
+      const destino =
+        parcela.status === StatusParcela.PAGO
+          ? receitaPorCliente
+          : atrasoPorCliente;
+
+      destino.set(
+        clienteId,
+        (destino.get(clienteId) ?? 0n) + valor,
+      );
+    }
+
+    for (const id of vinculosAusentes) {
+      this.logger.warn(
+        `Obrigação ${id} sem vínculo válido de cliente; ` +
+          'excluída dos rankings financeiros.',
+      );
+    }
+
+    const ordenarValores = (
+      valores: Map<number, bigint>,
+    ): Array<[number, bigint]> =>
+      [...valores].sort(([idA, valorA], [idB, valorB]) => {
+        if (valorA === valorB) return idA - idB;
+        return valorA > valorB ? -1 : 1;
+      });
 
     return {
-      topClientesServicos: topServicos.map((item) => ({
-        clienteId: Number(item.clienteId),
-        clienteNome: item.clienteNome,
-        quantidadeServicos: Number(item.quantidadeServicos ?? 0),
-      })),
-      topClientesRentaveis: topRentaveis.map((item) => ({
-        clienteId: Number(item.clienteId),
-        clienteNome: item.clienteNome,
-        totalFaturado: Number(Number(item.totalFaturado ?? 0).toFixed(2)),
-      })),
-      clientesInadimplentes: clientesInadimplentes.map((item) => ({
-        clienteId: Number(item.clienteId),
-        clienteNome: item.clienteNome,
-        valorEmAtraso: Number(Number(item.valorEmAtraso ?? 0).toFixed(2)),
-      })),
+      topClientesServicos: [...quantidadePorCliente]
+        .sort(
+          ([idA, quantidadeA], [idB, quantidadeB]) =>
+            quantidadeB - quantidadeA || idA - idB,
+        )
+        .map(([clienteId, quantidadeServicos]) => ({
+          clienteId,
+          clienteNome: nomePorUsuario.get(clienteId)!,
+          quantidadeServicos,
+        })),
+
+      topClientesRentaveis: ordenarValores(receitaPorCliente).map(
+        ([clienteId, valor]) => ({
+          clienteId,
+          clienteNome: nomePorUsuario.get(clienteId)!,
+          totalFaturado: Number(valor) / 100,
+        }),
+      ),
+
+      clientesInadimplentes: ordenarValores(atrasoPorCliente).map(
+        ([clienteId, valor]) => ({
+          clienteId,
+          clienteNome: nomePorUsuario.get(clienteId)!,
+          valorEmAtraso: Number(valor) / 100,
+        }),
+      ),
     };
   }
 
-  private parseAndValidatePeriod(startDate?: string, endDate?: string) {
-    if ((startDate && !endDate) || (!startDate && endDate)) {
-      throw new BadRequestException('startDate e endDate devem ser fornecidos juntos.');
+  private centavos(valor: string | number): bigint {
+    const partes = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(
+      String(valor),
+    );
+
+    if (!partes) {
+      throw new Error('Valor monetário inválido retornado pelo banco.');
     }
 
-    const dateRegex = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+    const inteiro = BigInt(partes[2]) * 100n;
+    const decimal = BigInt((partes[3] ?? '').padEnd(2, '0'));
 
-    const isValidCalendarDate = (value: string) => {
-      if (!dateRegex.test(value)) return false;
-      const [year, month, day] = value.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-    };
+    return (partes[1] ? -1n : 1n) * (inteiro + decimal);
+  }
 
-    const addDays = (value: string, days: number) => {
-      const [year, month, day] = value.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      date.setDate(date.getDate() + days);
-      const formattedYear = date.getFullYear();
-      const formattedMonth = String(date.getMonth() + 1).padStart(2, '0');
-      const formattedDay = String(date.getDate()).padStart(2, '0');
-      return `${formattedYear}-${formattedMonth}-${formattedDay}`;
-    };
+  private inicioDiaSP(data: string): Date {
+    const referencia = new Date(`${data}T12:00:00Z`);
 
-    const getTodaySP = () => {
-      const now = new Date();
-      const value = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-      const year = value.getFullYear();
-      const month = String(value.getMonth() + 1).padStart(2, '0');
-      const day = String(value.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
+    const partes = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Sao_Paulo',
+      timeZoneName: 'longOffset',
+    }).formatToParts(referencia);
 
-    let start = startDate ?? '';
-    let end = endDate ?? '';
-    const todayStr = getTodaySP();
+    const offset = partes
+      .find((parte) => parte.type === 'timeZoneName')!
+      .value.replace('GMT', '') || '+00:00';
 
-    if (!start || !end) {
-      const [year, month] = todayStr.split('-');
-      start = `${year}-${month}-01`;
-      end = todayStr;
-    } else if (!isValidCalendarDate(start) || !isValidCalendarDate(end)) {
-      throw new BadRequestException('Formato de data inválido ou data inexistente. Utilize YYYY-MM-DD.');
-    }
-
-    if (start > end) {
-      throw new BadRequestException('A data de início não pode ser posterior à data de fim.');
-    }
-
-    return {
-      startDate: start,
-      endDate: end,
-      todayStr,
-      startDateTime: `${start} 00:00:00`,
-      endDateTime: `${addDays(end, 1)} 00:00:00`,
-    };
+    return new Date(`${data}T00:00:00${offset}`);
   }
 }
