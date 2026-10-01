@@ -75,7 +75,7 @@ export class RecomendacaoService {
 
     const idsObrigacoes = obrigacaoEmpresa.map((oe) => oe.idObrigacao);
 
-    const obrigacaoValide = await Obrigacao.findOne({
+    const obrigacaoValida = await Obrigacao.findOne({
       where: {
         id: idsObrigacoes,
         status: StatusObrigacao.PENDENTE,
@@ -99,11 +99,11 @@ export class RecomendacaoService {
       ],
     });
 
-    if (!obrigacaoValide) {
+    if (!obrigacaoValida) {
       return null;
     }
 
-    const servico = (obrigacaoValide as any).obrigacaoServico?.servico;
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
 
     if (!servico) {
       return null;
