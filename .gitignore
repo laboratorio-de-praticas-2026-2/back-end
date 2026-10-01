@@ -58,3 +58,11 @@ tsconfig.build.tsbuildinfo
 
 # Prisma generated client
 generated/
+"tsconfig.build.tsbuildinfo" 
+*.tsbuildinfo
+
+# Arquivos locais de assistentes
+.agents/
+.claude/
+.cursor/
+.devin/
