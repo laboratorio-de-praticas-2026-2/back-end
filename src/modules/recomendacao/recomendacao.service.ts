@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { InjectModel } from '@nestjs/sequelize';
+
+import { Solicitacao } from '../../models/solicitacao.model.js';
 
 export interface AtributoPerfil {
   nome: string;
@@ -10,33 +12,33 @@ export interface AtributoPerfil {
 
 @Injectable()
 export class RecomendacaoService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    @InjectModel(Solicitacao)
+    private readonly solicitacaoModel: typeof Solicitacao,
+  ) {}
 
   /**
    * Retorna os atributos dos serviços já solicitados por um usuário,
    * usados para montar o perfil de interesse da recomendação.
    */
-  async buscarAtributosPerfil(usuarioId: number): Promise<AtributoPerfil[]> {
-    const solicitacoes = await this.prisma.solicitacao.findMany({
+  async buscarAtributosPerfil(
+    usuarioId: number,
+  ): Promise<AtributoPerfil[]> {
+    const solicitacoes = await this.solicitacaoModel.findAll({
       where: { usuarioId },
-      select: {
-        servico: {
-          select: {
-            nome: true,
-            descricao: true,
-            valorBase: true,
-            ativo: true,
-          },
+      include: [
+        {
+          association: 'servico',
+          attributes: ['nome', 'descricao', 'valorBase', 'ativo'],
         },
-      },
+      ],
     });
 
-    return solicitacoes.map(({ servico }: { servico: any }) => ({
+    return solicitacoes.map(({ servico }) => ({
       nome: servico.nome,
       descricao: servico.descricao,
-      // Decimal do Prisma -> number
-      valorBase: servico.valorBase != null ? servico.valorBase.toNumber() : null,
-      // booleano do banco -> status textual do domínio
+      valorBase:
+        servico.valorBase != null ? Number(servico.valorBase) : null,
       status: servico.ativo ? 'ativo' : 'inativo',
     }));
   }

@@ -1,26 +1,32 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { getModelToken } from '@nestjs/sequelize';
+
+import { Solicitacao } from '../../models/solicitacao.model.js';
+
 import { RecomendacaoService } from './recomendacao.service.js';
 
 describe('RecomendacaoService', () => {
   let service: RecomendacaoService;
 
-  const prismaMock = {
-    solicitacao: {
-      findMany: vi.fn(),
-    },
+  const solicitacaoModelMock = {
+    findAll: vi.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RecomendacaoService,
-        { provide: PrismaService, useValue: prismaMock },
+        {
+          provide: getModelToken(Solicitacao),
+          useValue: solicitacaoModelMock,
+        },
       ],
     }).compile();
 
     service = module.get<RecomendacaoService>(RecomendacaoService);
+
     vi.clearAllMocks();
   });
 
@@ -30,12 +36,12 @@ describe('RecomendacaoService', () => {
 
   describe('buscarAtributosPerfil', () => {
     it('deve retornar um array de objetos no formato definido, convertendo ativo em status', async () => {
-      prismaMock.solicitacao.findMany.mockResolvedValue([
+      solicitacaoModelMock.findAll.mockResolvedValue([
         {
           servico: {
             nome: 'Abertura de empresa',
             descricao: 'Abertura de CNPJ',
-            valorBase: { toNumber: () => 350 },
+            valorBase: 350,
             ativo: true,
           },
         },
@@ -51,18 +57,14 @@ describe('RecomendacaoService', () => {
 
       const resultado = await service.buscarAtributosPerfil(1);
 
-      expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith({
+      expect(solicitacaoModelMock.findAll).toHaveBeenCalledWith({
         where: { usuarioId: 1 },
-        select: {
-          servico: {
-            select: {
-              nome: true,
-              descricao: true,
-              valorBase: true,
-              ativo: true,
-            },
+        include: [
+          {
+            association: 'servico',
+            attributes: ['nome', 'descricao', 'valorBase', 'ativo'],
           },
-        },
+        ],
       });
 
       expect(resultado).toEqual([
@@ -82,7 +84,7 @@ describe('RecomendacaoService', () => {
     });
 
     it('deve retornar array vazio quando o usuário não tem solicitações', async () => {
-      prismaMock.solicitacao.findMany.mockResolvedValue([]);
+      solicitacaoModelMock.findAll.mockResolvedValue([]);
 
       const resultado = await service.buscarAtributosPerfil(99);
 
