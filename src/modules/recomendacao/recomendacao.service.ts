@@ -90,7 +90,7 @@ export class RecomendacaoService {
               model: Servico,
               as: 'servico',
               where: {
-                nome: 'Regularização de Obrigações Fiscais',
+                id: 5,
               },
               required: true,
             },
