@@ -1,18 +1,37 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { ClientesController } from './clientes.controller.js';
+import { ClientesService } from './clientes.service.js';
 
 describe('ClientesController', () => {
-  let controller: ClientesController;
+  it('encaminha os filtros ao service e retorna a resposta', async () => {
+    const resposta = {
+      topClientesServicos: [],
+      topClientesRentaveis: [],
+      clientesInadimplentes: [],
+    };
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const service = {
+      getDashboardClientes: vi.fn().mockResolvedValue(resposta),
+    };
+
+    const module = await Test.createTestingModule({
       controllers: [ClientesController],
+      providers: [
+        { provide: ClientesService, useValue: service },
+      ],
     }).compile();
 
-    controller = module.get<ClientesController>(ClientesController);
-  });
+    const controller = module.get(ClientesController);
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+    const resultado = await controller.getDashboardClientes(
+      '2026-09-01',
+      '2026-09-30',
+    );
+
+    expect(service.getDashboardClientes).toHaveBeenCalledWith(
+      '2026-09-01',
+      '2026-09-30',
+    );
+    expect(resultado).toEqual(resposta);
   });
 });

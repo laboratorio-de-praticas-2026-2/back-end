@@ -3,6 +3,10 @@ import { INestApplication } from '@nestjs/common';
 import { io, Socket } from 'socket.io-client';
 import { AppModule } from '../src/app.module.js';
 import { NotificacaoSocketService } from '../src/modules/notificacao/notificacao-socket.service.js';
+import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
+
+const TEST_JWT_SECRET = 'test-secret-e2e';
 
 describe('Notificação em Tempo Real (e2e)', () => {
   let app: INestApplication;
@@ -11,6 +15,7 @@ describe('Notificação em Tempo Real (e2e)', () => {
   let porta: number;
 
   beforeAll(async () => {
+    process.env.JWT_SECRET = TEST_JWT_SECRET;
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -35,10 +40,19 @@ describe('Notificação em Tempo Real (e2e)', () => {
     const userIdTeste = 'usuario-teste-123';
     const payload = { titulo: 'Teste', mensagem: 'Olá, mundo!' };
 
+    const token = jwt.sign(
+      { id: 1, nivel: 'cliente' },
+      TEST_JWT_SECRET,
+      { jwtid: randomUUID() },
+    );
+
     // Cria uma Promise que resolve quando a notificação chegar
     const notificacaoRecebida = new Promise<any>((resolve, reject) => {
       socket = io(`http://127.0.0.1:${porta}`, {
         transports: ['websocket'],
+        auth: {
+          token,
+        },
       });
 
       const timeout = setTimeout(() => {
