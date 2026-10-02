@@ -235,4 +235,86 @@ describe('RecomendacaoService', () => {
       expect(resultado).toBeNull();
     });
   });
+
+  describe('recomendarRevisaoRegime', () => {
+    it('deve retornar null se o usuário não tiver empresa associada', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [],
+      } as any);
+
+      const resultado = await service.recomendarRevisaoRegime(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null se o usuário não for encontrado', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue(null);
+
+      const resultado = await service.recomendarRevisaoRegime(99);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null se a empresa não possuir vínculos na tabela obrigacao_empresa', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 2,
+        empresas: [{ id: 1 }],
+      } as any);
+
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
+
+      const resultado = await service.recomendarRevisaoRegime(2);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null se houver menos de 3 competências distintas pendentes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 2,
+        empresas: [{ id: 1 }],
+      } as any);
+
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
+        { idObrigacao: 10 },
+        { idObrigacao: 20 },
+      ] as any);
+
+      vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
+        { id: 10, competencia: '2026-08-01', status: 'pendente' },
+        { id: 20, competencia: '2026-08-01', status: 'pendente' }, // mesma competência
+      ] as any);
+
+      const resultado = await service.recomendarRevisaoRegime(2);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar a recomendação quando existirem 3 ou mais competências distintas pendentes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 2,
+        empresas: [{ id: 1 }],
+      } as any);
+
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
+        { idObrigacao: 10 },
+        { idObrigacao: 20 },
+        { idObrigacao: 30 },
+      ] as any);
+
+      vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
+        { id: 10, competencia: '2026-06-01', status: 'pendente' },
+        { id: 20, competencia: '2026-07-01', status: 'pendente' },
+        { id: 30, competencia: '2026-08-01', status: 'pendente' },
+      ] as any);
+
+      const resultado = await service.recomendarRevisaoRegime(2);
+
+      expect(resultado).toEqual({
+        id: 1,
+        nome: 'Revisão do Regime Tributário',
+        descricao: 'Análise do regime tributário atual',
+      });
+    });
+  });
 });
