@@ -1,0 +1,217 @@
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/sequelize';
+import { Op } from 'sequelize';
+import { Servico } from '../../models/servico.model.js';
+import {
+  Solicitacao,
+  StatusSolicitacao,
+} from '../../models/solicitacao.model.js';
+import {
+  Obrigacao,
+  NaturezaCobranca,
+  TipoObrigacao,
+} from '../../models/obrigacao.model.js';
+import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
+import { Pagamento } from '../../models/pagamento.model.js';
+import { Parcela, StatusParcela } from '../../models/parcela.model.js';
+import { resolvePeriodo } from '../../commons/utils/period.util.js';
+
+@Injectable()
+export class ServicosService {
+  constructor(
+    @InjectModel(Servico) private readonly servicoModel: typeof Servico,
+    @InjectModel(Solicitacao)
+    private readonly solicitacaoModel: typeof Solicitacao,
+    @InjectModel(Parcela) private readonly parcelaModel: typeof Parcela,
+    @InjectModel(Pagamento)
+    private readonly pagamentoModel: typeof Pagamento,
+    @InjectModel(Obrigacao)
+    private readonly obrigacaoModel: typeof Obrigacao,
+    @InjectModel(ObrigacaoServico)
+    private readonly obrigacaoServicoModel: typeof ObrigacaoServico,
+  ) { }
+
+  async getIndicadores(startDate?: string, endDate?: string) {
+    const { start, endExclusive } = resolvePeriodo(startDate, endDate);
+
+    const inicioData = start.toISOString().slice(0, 10);
+    const fimDataExclusivo = endExclusive.toISOString().slice(0, 10);
+
+    const inicioHorario = new Date(`${inicioData}T00:00:00-03:00`);
+    const fimHorario = new Date(`${fimDataExclusivo}T00:00:00-03:00`);
+
+    // 1. Status do catalogo
+    const [ativos, pausados] = await Promise.all([
+      this.servicoModel.count({
+        where: { ativo: true, deletedAt: null },
+      }),
+      this.servicoModel.count({
+        where: { ativo: false, deletedAt: null },
+      }),
+    ]);
+
+    // 2. Faturamento: parcelas pagas no periodo
+    const parcelasPagas = await this.parcelaModel.findAll({
+      where: {
+        deletedAt: null,
+        status: StatusParcela.PAGO,
+        dataPagamento: {
+          [Op.ne]: null,
+          [Op.gte]: inicioData,
+          [Op.lt]: fimDataExclusivo,
+        },
+      },
+    });
+
+    const idsPagamentos = parcelasPagas.map((p) => p.idPagamento);
+
+    const pagamentos = idsPagamentos.length
+      ? await this.pagamentoModel.findAll({
+        where: {
+          id: { [Op.in]: idsPagamentos },
+          deletedAt: null,
+        },
+      })
+      : [];
+
+    const idsObrigacoes = pagamentos.map((p) => p.idObrigacao);
+
+    const obrigacoes = idsObrigacoes.length
+      ? await this.obrigacaoModel.findAll({
+        where: {
+          id: { [Op.in]: idsObrigacoes },
+          deletedAt: null,
+          tipo: TipoObrigacao.SERVICO,
+          naturezaCobranca: {
+            [Op.in]: [
+              NaturezaCobranca.MENSALIDADE,
+              NaturezaCobranca.SERVICO_AVULSO,
+            ],
+          },
+        },
+      })
+      : [];
+
+    const idsObrigacoesValidas = obrigacoes.map((o) => o.id);
+
+    const obrigacaoServicos = idsObrigacoesValidas.length
+      ? await this.obrigacaoServicoModel.findAll({
+        where: { idObrigacao: { [Op.in]: idsObrigacoesValidas } },
+      })
+      : [];
+
+    const idsServicos = obrigacaoServicos.map((os) => os.idServico);
+
+    const servicos = idsServicos.length
+      ? await this.servicoModel.findAll({
+        where: { id: { [Op.in]: idsServicos } },
+        paranoid: false,
+      })
+      : [];
+
+    const pagamentoPorId = new Map(pagamentos.map((p) => [p.id, p]));
+    const obrigacaoPorId = new Map(obrigacoes.map((o) => [o.id, o]));
+    const osPorObrigacao = new Map(
+      obrigacaoServicos.map((os) => [os.idObrigacao, os]),
+    );
+    const servicoPorId = new Map(servicos.map((s) => [s.id, s]));
+
+    const faturamentoMap = new Map<
+      number,
+      { nome: string; total: bigint }
+    >();
+
+    for (const parcela of parcelasPagas) {
+      const pagamento = pagamentoPorId.get(parcela.idPagamento);
+      if (!pagamento) continue;
+      const obrigacao = obrigacaoPorId.get(pagamento.idObrigacao);
+      if (!obrigacao) continue;
+      const os = osPorObrigacao.get(obrigacao.id);
+      if (!os) continue;
+      const servico = servicoPorId.get(os.idServico);
+      if (!servico) continue;
+
+      const atual = faturamentoMap.get(servico.id) ?? {
+        nome: servico.nome,
+        total: 0n,
+      };
+
+      atual.total += this.centavos(parcela.valor);
+      faturamentoMap.set(servico.id, atual);
+    }
+
+    const faturamentoPorServico = Array.from(faturamentoMap.entries())
+      .sort(([idA, a], [idB, b]) => {
+        if (a.total === b.total) return idA - idB;
+        return a.total > b.total ? -1 : 1;
+      })
+      .map(([servicoId, item]) => ({
+        servicoId,
+        servicoNome: item.nome,
+        totalFaturado: Number(item.total) / 100,
+      }));
+
+    // 3. Demandas
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      where: {
+        deletedAt: null,
+        status: { [Op.ne]: StatusSolicitacao.CANCELADO },
+        dataSolicitacao: {
+          [Op.gte]: inicioHorario,
+          [Op.lt]: fimHorario,
+        },
+      },
+    });
+
+    const idsServicosDemanda = solicitacoes.map((s) => s.servicoId);
+
+    const servicosDemanda = idsServicosDemanda.length
+      ? await this.servicoModel.findAll({
+        where: { id: { [Op.in]: idsServicosDemanda } },
+        paranoid: false,
+      })
+      : [];
+
+    const servicoDemandaPorId = new Map(servicosDemanda.map((s) => [s.id, s]));
+
+    const demandaMap = new Map<number, { nome: string; qtd: number }>();
+    for (const s of solicitacoes) {
+      const servico = servicoDemandaPorId.get(s.servicoId);
+      if (!servico) continue;
+      const atual = demandaMap.get(servico.id) ?? {
+        nome: servico.nome,
+        qtd: 0,
+      };
+      atual.qtd++;
+      demandaMap.set(servico.id, atual);
+    }
+
+    const demandasMaisSolicitadas = Array.from(demandaMap.entries())
+      .map(([servicoId, v]) => ({
+        servicoId,
+        servicoNome: v.nome,
+        quantidade: v.qtd,
+      }))
+      .sort(
+        (a, b) => b.quantidade - a.quantidade || a.servicoId - b.servicoId,
+      );
+
+    return {
+      statusServicos: { ativos, pausados, total: ativos + pausados },
+      faturamentoPorServico,
+      demandasMaisSolicitadas,
+    };
+  }
+  private centavos(valor: string | number): bigint {
+    const partes = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(String(valor));
+
+    if (!partes) {
+      throw new Error('Valor monetário inválido retornado pelo banco.');
+    }
+
+    const inteiro = BigInt(partes[2]) * 100n;
+    const decimal = BigInt((partes[3] ?? '').padEnd(2, '0'));
+
+    return (partes[1] ? -1n : 1n) * (inteiro + decimal);
+  }
+}
