@@ -6,7 +6,9 @@ import { Usuario } from '../../models/usuario.model.js';
 import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
 import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
 import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
-import { Servico } from '../cms/servicos/servico.model.js';
+import { Servico } from '../../models/servico.model.js';
+
+const NOME_SERVICO_REGULARIZACAO_DEBITOS = 'Regularização de Débitos Fiscais';
 
 export interface AtributoPerfil {
   nome: string;
@@ -26,9 +28,7 @@ export class RecomendacaoService {
    * Retorna os atributos dos serviços já solicitados por um usuário,
    * usados para montar o perfil de interesse da recomendação.
    */
-  async buscarAtributosPerfil(
-    usuarioId: number,
-  ): Promise<AtributoPerfil[]> {
+  async buscarAtributosPerfil(usuarioId: number): Promise<AtributoPerfil[]> {
     const solicitacoes = await this.solicitacaoModel.findAll({
       where: { usuarioId },
       include: [
@@ -42,8 +42,7 @@ export class RecomendacaoService {
     return solicitacoes.map(({ servico }) => ({
       nome: servico.nome,
       descricao: servico.descricao,
-      valorBase:
-        servico.valorBase != null ? Number(servico.valorBase) : null,
+      valorBase: servico.valorBase != null ? Number(servico.valorBase) : null,
       status: servico.ativo ? 'ativo' : 'inativo',
     }));
   }
@@ -98,31 +97,29 @@ export class RecomendacaoService {
   async verificarRecomendacaoRegularizacaoObrigacoesFiscais(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
-    
+    // 1-2. Identifica a empresa vinculada ao usuário
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
 
-    const empresa  = (usuario as any)?.empresas?.[0];
+    const empresa = (usuario as any)?.empresas?.[0];
 
     if (!empresa?.id) {
       return null;
     }
 
-    const empresaId = empresa.id;
-
-    const obrigacaoEmpresa = await ObrigacaoEmpresa.findAll({
-      where: {
-        idEmpresa: empresaId,
-      },
+    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
     });
 
-    if (!obrigacaoEmpresa.length) {
+    if (!obrigacoesEmpresa.length) {
       return null;
     }
 
-    const idsObrigacoes = obrigacaoEmpresa.map((oe) => oe.idObrigacao);
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
 
+    // 5-8. OBRIGACAO_SERVICO -> SERVICO, filtrando por nome e status pendente
     const obrigacaoValida = await Obrigacao.findOne({
       where: {
         id: idsObrigacoes,
@@ -137,9 +134,7 @@ export class RecomendacaoService {
             {
               model: Servico,
               as: 'servico',
-              where: {
-                id: 5,
-              },
+              where: { nome: NOME_SERVICO_REGULARIZACAO_DEBITOS },
               required: true,
             },
           ],
@@ -157,10 +152,11 @@ export class RecomendacaoService {
       return null;
     }
 
+    // 9. Retorna somente id, nome e descricao
     return {
       id: servico.id,
       nome: servico.nome,
-      descricao: servico.descricao,
+      descricao: servico.descricao ?? '',
     };
   }
 }

@@ -1,11 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Test, TestingModule } from '@nestjs/testing';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/sequelize';
 import { Solicitacao } from '../../models/solicitacao.model.js';
 import { RecomendacaoService } from './recomendacao.service.js';
 import { Usuario } from '../../models/usuario.model.js';
 import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
-import { Obrigacao } from '../../models/obrigacao.model.js';
+import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
 
 describe('RecomendacaoService', () => {
   let service: RecomendacaoService;
@@ -159,24 +158,28 @@ describe('RecomendacaoService', () => {
   });
 
   describe('verificarRecomendacaoRegularizacaoObrigacoesFiscais', () => {
-    it('deve retornar a recomendação com { id, nome, descricao } quando houver obrigação pendente vinculada ao serviço', async () => {
+    const NOME_SERVICO = 'Regularização de Débitos Fiscais';
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('deve recomendar Regularização de Débitos Fiscais quando houver obrigação pendente vinculada ao serviço', async () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
-
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
-        { idObrigacao: 100 } as any,
-      ]);
-
+        { idObrigacao: 100 },
+      ] as any);
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
-        status: 'pendente',
+        status: StatusObrigacao.PENDENTE,
         obrigacaoServico: {
           servico: {
             id: 5,
-            nome: 'Regularização de Obrigações Fiscais',
-            descricao: 'Serviço para regularizar débitos fiscais',
+            nome: NOME_SERVICO,
+            descricao: 'Regularização de débitos tributários da empresa',
           },
         },
       } as any);
@@ -186,21 +189,120 @@ describe('RecomendacaoService', () => {
 
       expect(resultado).toEqual({
         id: 5,
-        nome: 'Regularização de Obrigações Fiscais',
-        descricao: 'Serviço para regularizar débitos fiscais',
+        nome: NOME_SERVICO,
+        descricao: 'Regularização de débitos tributários da empresa',
       });
     });
 
+    it('deve utilizar corretamente os relacionamentos entre empresa, obrigação e serviço', async () => {
+      const findByPk = vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      const findAllOE = vi
+        .spyOn(ObrigacaoEmpresa, 'findAll')
+        .mockResolvedValue([{ idObrigacao: 100 }, { idObrigacao: 101 }] as any);
+      const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
+
+      await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
+
+      expect(findByPk).toHaveBeenCalledWith(1, { include: ['empresas'] });
+      expect(findAllOE).toHaveBeenCalledWith({ where: { idEmpresa: 10 } });
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: [100, 101], status: StatusObrigacao.PENDENTE },
+          include: [
+            expect.objectContaining({
+              as: 'obrigacaoServico',
+              required: true,
+              include: [
+                expect.objectContaining({
+                  as: 'servico',
+                  where: { nome: NOME_SERVICO },
+                  required: true,
+                }),
+              ],
+            }),
+          ],
+        }),
+      );
+    });
+
+    it('deve retornar os dados somente no formato id, nome e descricao', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
+        { idObrigacao: 100 },
+      ] as any);
+      vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
+        id: 100,
+        obrigacaoServico: {
+          servico: {
+            id: 5,
+            nome: NOME_SERVICO,
+            descricao: 'Desc',
+            valorBase: 500,
+            ativo: true,
+          },
+        },
+      } as any);
+
+      const resultado =
+        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
+
+      expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
+    });
+
+    it('deve retornar null quando não existir obrigação que atenda à condição', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
+        { idObrigacao: 100 },
+      ] as any);
+      vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
+
+      const resultado =
+        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve recomendar quando a obrigação relacionada não estiver pendente', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
+        { idObrigacao: 100 },
+      ] as any);
+      // O banco não retorna obrigações pagas, pois o filtro é status = pendente
+      const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
+
+      const resultado =
+        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
+
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: StatusObrigacao.PENDENTE }),
+        }),
+      );
+      expect(resultado).toBeNull();
+    });
+
+    // Casos extras (opcionais)
     it('deve retornar null se o usuário não tiver empresa associada', async () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
         empresas: [],
       } as any);
 
-      const resultado =
-        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
-
-      expect(resultado).toBeNull();
+      expect(
+        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1),
+      ).toBeNull();
     });
 
     it('deve retornar null se a empresa não tiver obrigações cadastradas', async () => {
@@ -208,31 +310,11 @@ describe('RecomendacaoService', () => {
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
-
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
 
-      const resultado =
-        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
-
-      expect(resultado).toBeNull();
-    });
-
-    it('deve retornar null quando nenhuma obrigação pendente atender ao serviço de Regularização de Obrigações Fiscais', async () => {
-      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
-        id: 1,
-        empresas: [{ id: 10 }],
-      } as any);
-
-      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
-        { idObrigacao: 100 },
-      ] as any);
-
-      vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
-
-      const resultado =
-        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
-
-      expect(resultado).toBeNull();
+      expect(
+        await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1),
+      ).toBeNull();
     });
   });
 });
