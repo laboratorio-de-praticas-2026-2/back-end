@@ -509,4 +509,170 @@ describe('RecomendacaoService', () => {
       ).toBeNull();
     });
   });
+
+  describe('verificarRecomendacaoRecursoMultaInfracaoFiscal', () => {
+    const NOME_SERVICO = 'Recurso de Multa/Infração Fiscal';
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const mockEmpresaEObrigacoes = () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
+        { idObrigacao: 100 },
+      ] as any);
+    };
+
+    it('deve recomendar quando houver obrigação pendente vinculada ao serviço', async () => {
+      mockEmpresaEObrigacoes();
+      vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
+        id: 100,
+        status: StatusObrigacao.PENDENTE,
+        obrigacaoServico: {
+          servico: {
+            id: 8,
+            nome: NOME_SERVICO,
+            descricao: 'Contestação de multas ou infrações fiscais',
+          },
+        },
+      } as any);
+
+      const resultado =
+        await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
+
+      expect(resultado).toEqual({
+        id: 8,
+        nome: NOME_SERVICO,
+        descricao: 'Contestação de multas ou infrações fiscais',
+      });
+    });
+
+    it('deve retornar os dados somente no formato id, nome e descricao', async () => {
+      mockEmpresaEObrigacoes();
+      vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
+        id: 100,
+        obrigacaoServico: {
+          servico: {
+            id: 8,
+            nome: NOME_SERVICO,
+            descricao: 'Desc',
+            valorBase: 500,
+            ativo: true,
+          },
+        },
+      } as any);
+
+      const resultado =
+        await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
+
+      expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
+    });
+
+    it('deve consultar obrigações pendentes relacionadas ao serviço correto via OBRIGACAO_SERVICO', async () => {
+      mockEmpresaEObrigacoes();
+      const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
+
+      await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
+
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: [100], status: StatusObrigacao.PENDENTE },
+          include: [
+            expect.objectContaining({
+              as: 'obrigacaoServico',
+              required: true,
+              include: [
+                expect.objectContaining({
+                  as: 'servico',
+                  where: { nome: NOME_SERVICO },
+                  required: true,
+                }),
+              ],
+            }),
+          ],
+        }),
+      );
+    });
+
+    it('deve retornar null quando não existir obrigação que atenda à condição', async () => {
+      mockEmpresaEObrigacoes();
+      vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
+
+      const resultado =
+        await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve recomendar quando a obrigação não estiver pendente', async () => {
+      mockEmpresaEObrigacoes();
+      // O filtro status = pendente é aplicado no banco, que não retorna a obrigação paga
+      const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
+
+      const resultado =
+        await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
+
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: StatusObrigacao.PENDENTE }),
+        }),
+      );
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve recomendar quando a obrigação não estiver relacionada ao serviço', async () => {
+      mockEmpresaEObrigacoes();
+      // O filtro por nome do serviço é aplicado no banco (include com required: true)
+      const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
+
+      const resultado =
+        await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
+
+      expect(findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: [
+            expect.objectContaining({
+              as: 'obrigacaoServico',
+              required: true,
+              include: [
+                expect.objectContaining({
+                  as: 'servico',
+                  where: { nome: NOME_SERVICO },
+                  required: true,
+                }),
+              ],
+            }),
+          ],
+        }),
+      );
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null se o usuário não tiver empresa associada', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [],
+      } as any);
+
+      expect(
+        await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1),
+      ).toBeNull();
+    });
+
+    it('deve retornar null se a empresa não tiver obrigações cadastradas', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
+
+      expect(
+        await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1),
+      ).toBeNull();
+    });
+  });
 });
