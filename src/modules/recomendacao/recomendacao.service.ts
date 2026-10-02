@@ -6,8 +6,9 @@ import { Usuario } from '../../models/usuario.model.js';
 import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
 import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
 import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
-import { Servico } from '../../models/servico.model.js';
+import { Servico } from '../cms/servicos/servico.model.js';
 import { Pagamento, TipoPagamento } from '../../models/pagamento.model.js';
+
 
 const NOME_SERVICO_REGULARIZACAO_DEBITOS = 'Regularização de Débitos Fiscais';
 
@@ -33,7 +34,9 @@ export class RecomendacaoService {
    * Retorna os atributos dos serviços já solicitados por um usuário,
    * usados para montar o perfil de interesse da recomendação.
    */
-  async buscarAtributosPerfil(usuarioId: number): Promise<AtributoPerfil[]> {
+  async buscarAtributosPerfil(
+    usuarioId: number,
+  ): Promise<AtributoPerfil[]> {
     const solicitacoes = await this.solicitacaoModel.findAll({
       where: { usuarioId },
       include: [
@@ -47,7 +50,8 @@ export class RecomendacaoService {
     return solicitacoes.map(({ servico }) => ({
       nome: servico.nome,
       descricao: servico.descricao,
-      valorBase: servico.valorBase != null ? Number(servico.valorBase) : null,
+      valorBase:
+        servico.valorBase != null ? Number(servico.valorBase) : null,
       status: servico.ativo ? 'ativo' : 'inativo',
     }));
   }
@@ -100,6 +104,79 @@ export class RecomendacaoService {
   }
 
   async verificarRecomendacaoRegularizacaoObrigacoesFiscais(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa  = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const empresaId = empresa.id;
+
+    const obrigacaoEmpresa = await ObrigacaoEmpresa.findAll({
+      where: {
+        idEmpresa: empresaId,
+      },
+    });
+
+    if (!obrigacaoEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacaoEmpresa.map((oe) => oe.idObrigacao);
+
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: {
+                id: 5,
+              },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao,
+    };
+  }
+
+  /**
+   * Recomenda "Regularização de Débitos Fiscais" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoRegularizacaoDebitosFiscais(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
     // 1-2. Identifica a empresa vinculada ao usuário
