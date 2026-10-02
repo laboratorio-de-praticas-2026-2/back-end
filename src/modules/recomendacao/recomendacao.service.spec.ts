@@ -34,6 +34,72 @@ describe('RecomendacaoService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('buscarServicosPopulares', () => {
+    it('deve retornar os serviços ordenados pela quantidade de solicitações', async () => {
+      const a = { id: 1, nome: 'Serviço A', descricao: 'Desc A' };
+      const b = { id: 2, nome: 'Serviço B', descricao: 'Desc B' };
+      const c = { id: 3, nome: 'Serviço C', descricao: 'Desc C' };
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servico: a },
+        { servico: b },
+        { servico: c },
+        { servico: b },
+        { servico: c },
+        { servico: b },
+      ]);
+
+      const resultado = await service.buscarServicosPopulares();
+
+      expect(resultado.map((s) => s.id)).toEqual([2, 3, 1]);
+    });
+
+    it('deve consultar somente serviços ativos', async () => {
+      solicitacaoModelMock.findAll.mockResolvedValue([]);
+
+      await service.buscarServicosPopulares();
+
+      expect(solicitacaoModelMock.findAll).toHaveBeenCalledWith({
+        include: [
+          {
+            association: 'servico',
+            attributes: ['id', 'nome', 'descricao'],
+            where: { ativo: true },
+            required: true,
+          },
+        ],
+      });
+    });
+
+    it('deve retornar somente id, nome e descricao, sem a quantidade', async () => {
+      const servico = {
+        id: 1,
+        nome: 'Abertura de empresa',
+        descricao: 'Abertura de CNPJ',
+      };
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servico },
+        { servico },
+      ]);
+
+      const resultado = await service.buscarServicosPopulares();
+
+      expect(resultado).toEqual([
+        { id: 1, nome: 'Abertura de empresa', descricao: 'Abertura de CNPJ' },
+      ]);
+      expect(Object.keys(resultado[0])).toEqual(['id', 'nome', 'descricao']);
+    });
+
+    it('deve retornar array vazio quando não existirem solicitações', async () => {
+      solicitacaoModelMock.findAll.mockResolvedValue([]);
+
+      const resultado = await service.buscarServicosPopulares();
+
+      expect(resultado).toEqual([]);
+    });
+  });
+
   describe('buscarAtributosPerfil', () => {
     it('deve retornar um array de objetos no formato definido, convertendo ativo em status', async () => {
       solicitacaoModelMock.findAll.mockResolvedValue([

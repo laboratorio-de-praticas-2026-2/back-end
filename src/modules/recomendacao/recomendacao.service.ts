@@ -48,9 +48,57 @@ export class RecomendacaoService {
     }));
   }
 
+  /**
+   * Retorna os serviços ativos mais solicitados, do mais para o menos
+   * solicitado. Usado como base de popularidade e fallback de recomendação.
+   */
+  async buscarServicosPopulares(): Promise<RecomendacaoRespostaDto[]> {
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      include: [
+        {
+          association: 'servico',
+          attributes: ['id', 'nome', 'descricao'],
+          where: { ativo: true },
+          required: true,
+        },
+      ],
+    });
+
+    if (solicitacoes.length === 0) {
+      return [];
+    }
+
+    const contagem = new Map<
+      number,
+      { servico: RecomendacaoRespostaDto; total: number }
+    >();
+
+    for (const { servico } of solicitacoes) {
+      const atual = contagem.get(servico.id);
+
+      if (atual) {
+        atual.total += 1;
+      } else {
+        contagem.set(servico.id, {
+          servico: {
+            id: servico.id,
+            nome: servico.nome,
+            descricao: servico.descricao ?? '',
+          },
+          total: 1,
+        });
+      }
+    }
+
+    return [...contagem.values()]
+      .sort((a, b) => b.total - a.total)
+      .map(({ servico }) => servico);
+  }
+
   async verificarRecomendacaoRegularizacaoObrigacoesFiscais(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
+    
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
