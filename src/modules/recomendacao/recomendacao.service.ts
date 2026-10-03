@@ -7,6 +7,17 @@ import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
 import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
 import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
 import { Servico } from '../cms/servicos/servico.model.js';
+import { Pagamento, TipoPagamento } from '../../models/pagamento.model.js';
+
+
+const NOME_SERVICO_REGULARIZACAO_DEBITOS = 'Regularização de Débitos Fiscais';
+
+const NOME_SERVICO_PARCELAMENTO_DEBITOS = 'Parcelamento de Débitos Fiscais';
+
+const NOME_SERVICO_RECURSO_MULTA = 'Recurso de Multa/Infração Fiscal';
+
+const NOME_SERVICO_ENTREGA_OBRIGACOES_ACESSORIAS =
+  'Entrega de Obrigações Acessórias';
 
 export interface AtributoPerfil {
   nome: string;
@@ -163,7 +174,298 @@ export class RecomendacaoService {
       descricao: servico.descricao,
     };
   }
-  
+
+  /**
+   * Recomenda "Regularização de Débitos Fiscais" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoRegularizacaoDebitosFiscais(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    // 5-8. OBRIGACAO_SERVICO -> SERVICO, filtrando por nome e status pendente
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: { nome: NOME_SERVICO_REGULARIZACAO_DEBITOS },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    // 9. Retorna somente id, nome e descricao
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
+
+  /**
+   * Recomenda "Parcelamento de Débitos Fiscais" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço e essa obrigação
+   * ainda não possui pagamento com tipo_pagamento = 'parcelado'.
+   */
+  async verificarRecomendacaoParcelamentoDebitosFiscais(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    // 1-2. Identifica a empresa vinculada ao usuário
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    // 5-10. OBRIGACAO_SERVICO -> SERVICO (nome), status pendente
+    // e PAGAMENTO parcelado (LEFT JOIN: required: false)
+    const obrigacoes = await Obrigacao.findAll({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: { nome: NOME_SERVICO_PARCELAMENTO_DEBITOS },
+              required: true,
+            },
+          ],
+        },
+        {
+          model: Pagamento,
+          as: 'pagamento',
+          where: { tipoPagamento: TipoPagamento.PARCELADO },
+          required: false,
+        },
+      ],
+    });
+
+    // 11. Primeira obrigação SEM pagamento parcelado
+    const obrigacaoValida = obrigacoes.find(
+      (obrigacao) => !(obrigacao as any).pagamento,
+    );
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
+
+  /**
+   * Recomenda "Recurso de Multa/Infração Fiscal" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoRecursoMultaInfracaoFiscal(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    // 1-2. Identifica a empresa vinculada ao usuário
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    // 5-8. Status pendente + OBRIGACAO_SERVICO -> SERVICO pelo nome
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: { nome: NOME_SERVICO_RECURSO_MULTA },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    // 9. Retorna somente id, nome e descricao
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
+
+  /**
+   * Recomenda "Entrega de Obrigações Acessórias" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoEntregaObrigacoesAcessorias(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    // 1-2. Identifica a empresa vinculada ao usuário
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    // 5-8. Status pendente + OBRIGACAO_SERVICO -> SERVICO pelo nome
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: { nome: NOME_SERVICO_ENTREGA_OBRIGACOES_ACESSORIAS },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    // 9. Retorna somente id, nome e descricao
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
   async recomendarRevisaoRegime(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
