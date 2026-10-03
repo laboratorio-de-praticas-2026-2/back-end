@@ -182,7 +182,7 @@ export class RecomendacaoService {
   async verificarRecomendacaoRegularizacaoDebitosFiscais(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
-    // 1-2. Identifica a empresa vinculada ao usuário
+
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
@@ -192,7 +192,6 @@ export class RecomendacaoService {
     if (!empresa?.id) {
       return null;
     }
-
     // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
     const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
       where: { idEmpresa: empresa.id },
@@ -210,6 +209,7 @@ export class RecomendacaoService {
         id: idsObrigacoes,
         status: StatusObrigacao.PENDENTE,
       },
+
       include: [
         {
           model: ObrigacaoServico,
@@ -465,5 +465,51 @@ export class RecomendacaoService {
       nome: servico.nome,
       descricao: servico.descricao ?? '',
     };
+  }
+  async recomendarRevisaoRegime(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const vinculos = await ObrigacaoEmpresa.findAll({
+      where: {
+        idEmpresa: empresa.id,
+      },
+    });
+
+    const idsObrigacoes = vinculos.map((item) => item.idObrigacao);
+
+    if (idsObrigacoes.length === 0) {
+      return null;
+    }
+
+    const obrigacoesPendentes = await Obrigacao.findAll({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+    });
+
+    const competenciasDistintas = new Set(
+      obrigacoesPendentes.map((obrigacao) => obrigacao.competencia),
+    );
+
+    if (competenciasDistintas.size >= 3) {
+      return {
+        id: 1,
+        nome: 'Revisão do Regime Tributário',
+        descricao: 'Análise do regime tributário atual',
+      };
+    }
+
+    return null;
   }
 }
