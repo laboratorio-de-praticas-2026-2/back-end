@@ -6,6 +6,7 @@ import { RecomendacaoService } from './recomendacao.service.js';
 import { Usuario } from '../../models/usuario.model.js';
 import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
 import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
+import { TipoPagamento } from '../../models/pagamento.model.js';
 
 describe('RecomendacaoService', () => {
   let service: RecomendacaoService;
@@ -378,6 +379,196 @@ describe('RecomendacaoService', () => {
 
       expect(
         await service.verificarRecomendacaoRegularizacaoDebitosFiscais(1),
+      ).toBeNull();
+    });
+  });
+
+  describe('verificarRecomendacaoParcelamentoDebitosFiscais', () => {
+    const NOME_SERVICO = 'Parcelamento de Débitos Fiscais';
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const mockEmpresaEObrigacoes = () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
+        { idObrigacao: 100 },
+      ] as any);
+    };
+
+    it('deve recomendar quando houver obrigação pendente do serviço sem pagamento parcelado', async () => {
+      mockEmpresaEObrigacoes();
+      vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
+        {
+          id: 100,
+          status: StatusObrigacao.PENDENTE,
+          pagamento: null,
+          obrigacaoServico: {
+            servico: {
+              id: 7,
+              nome: NOME_SERVICO,
+              descricao: 'Negociação/parcelamento de débitos existentes',
+            },
+          },
+        },
+      ] as any);
+
+      const resultado =
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
+
+      expect(resultado).toEqual({
+        id: 7,
+        nome: NOME_SERVICO,
+        descricao: 'Negociação/parcelamento de débitos existentes',
+      });
+    });
+
+    it('deve retornar os dados somente no formato id, nome e descricao', async () => {
+      mockEmpresaEObrigacoes();
+      vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
+        {
+          id: 100,
+          pagamento: null,
+          obrigacaoServico: {
+            servico: {
+              id: 7,
+              nome: NOME_SERVICO,
+              descricao: 'Desc',
+              valorBase: 500,
+              ativo: true,
+            },
+          },
+        },
+      ] as any);
+
+      const resultado =
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
+
+      expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
+    });
+
+    it('deve consultar obrigações pendentes, o serviço correto e pagamento parcelado', async () => {
+      mockEmpresaEObrigacoes();
+      const findAll = vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([]);
+
+      await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
+
+      expect(findAll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: [100], status: StatusObrigacao.PENDENTE },
+          include: [
+            expect.objectContaining({
+              as: 'obrigacaoServico',
+              required: true,
+              include: [
+                expect.objectContaining({
+                  as: 'servico',
+                  where: { nome: NOME_SERVICO },
+                  required: true,
+                }),
+              ],
+            }),
+            expect.objectContaining({
+              as: 'pagamento',
+              where: { tipoPagamento: TipoPagamento.PARCELADO },
+              required: false,
+            }),
+          ],
+        }),
+      );
+    });
+
+    it('deve retornar null quando não existir obrigação que atenda à condição', async () => {
+      mockEmpresaEObrigacoes();
+      vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([]);
+
+      const resultado =
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve recomendar quando a obrigação não estiver pendente', async () => {
+      mockEmpresaEObrigacoes();
+      // O filtro status = pendente é aplicado no banco, que não retorna a obrigação paga
+      const findAll = vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([]);
+
+      const resultado =
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
+
+      expect(findAll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: StatusObrigacao.PENDENTE }),
+        }),
+      );
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve recomendar quando existir pagamento parcelado para a obrigação', async () => {
+      mockEmpresaEObrigacoes();
+      vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
+        {
+          id: 100,
+          status: StatusObrigacao.PENDENTE,
+          pagamento: { id: 1, tipoPagamento: TipoPagamento.PARCELADO },
+          obrigacaoServico: {
+            servico: { id: 7, nome: NOME_SERVICO, descricao: 'Desc' },
+          },
+        },
+      ] as any);
+
+      const resultado =
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve recomendar se outra obrigação não tiver pagamento parcelado', async () => {
+      mockEmpresaEObrigacoes();
+      const servico = { id: 7, nome: NOME_SERVICO, descricao: 'Desc' };
+      vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
+        {
+          id: 100,
+          pagamento: { id: 1, tipoPagamento: TipoPagamento.PARCELADO },
+          obrigacaoServico: { servico },
+        },
+        { id: 101, pagamento: null, obrigacaoServico: { servico } },
+      ] as any);
+
+      const resultado =
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
+
+      expect(resultado).toEqual({
+        id: 7,
+        nome: NOME_SERVICO,
+        descricao: 'Desc',
+      });
+    });
+
+    it('deve retornar null se o usuário não tiver empresa associada', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [],
+      } as any);
+
+      expect(
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1),
+      ).toBeNull();
+    });
+
+    it('deve retornar null se a empresa não tiver obrigações cadastradas', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+      vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
+
+      expect(
+        await service.verificarRecomendacaoParcelamentoDebitosFiscais(1),
       ).toBeNull();
     });
   });
