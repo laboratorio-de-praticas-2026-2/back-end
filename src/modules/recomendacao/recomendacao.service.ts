@@ -8,6 +8,8 @@ import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
 import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
 import { Servico } from '../cms/servicos/servico.model.js';
 
+const NOME_SERVICO_REGULARIZACAO_DEBITOS = 'Regularização de Débitos Fiscais';
+
 export interface AtributoPerfil {
   nome: string;
   descricao: string | null;
@@ -161,6 +163,76 @@ export class RecomendacaoService {
       id: servico.id,
       nome: servico.nome,
       descricao: servico.descricao,
+    };
+  }
+
+  /**
+   * Recomenda "Regularização de Débitos Fiscais" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoRegularizacaoDebitosFiscais(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    // 1-2. Identifica a empresa vinculada ao usuário
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    // 5-8. OBRIGACAO_SERVICO -> SERVICO, filtrando por nome e status pendente
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: { nome: NOME_SERVICO_REGULARIZACAO_DEBITOS },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    // 9. Retorna somente id, nome e descricao
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
     };
   }
 }
