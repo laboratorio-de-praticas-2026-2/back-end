@@ -6,7 +6,7 @@ import { Usuario } from '../../models/usuario.model.js';
 import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
 import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
 import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
-import { Servico } from '../cms/servicos/servico.model.js';
+import { Servico } from '../../models/servico.model.js';
 
 export interface AtributoPerfil {
   nome: string;
@@ -205,6 +205,44 @@ export class RecomendacaoService {
         id: 1,
         nome: 'Revisão do Regime Tributário',
         descricao: 'Análise do regime tributário atual',
+      };
+    }
+
+    return null;
+  }
+
+  async recomendarPlanejamentoTributario(
+    usuarioId: number,
+  ) : Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      where: {
+        empresaId: empresa.id,
+      },
+    });
+
+    const servicosTributariosValidos = new Set([1, 2, 3, 4, 5, 6]);
+
+    const servicosDistintos = new Set(
+      solicitacoes
+        .map((s) => s.servicoId)
+        .filter((servicoId) => servicosTributariosValidos.has(servicoId)),
+    );
+
+    if (servicosDistintos.size >= 2) {
+      return {
+        id: 7,
+        nome: 'Planejamento Tributário',
+        descricao: 'Análise para otimização da carga tributária',
       };
     }
 

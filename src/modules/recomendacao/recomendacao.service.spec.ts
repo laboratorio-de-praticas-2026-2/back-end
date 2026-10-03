@@ -6,6 +6,7 @@ import { RecomendacaoService } from './recomendacao.service.js';
 import { Usuario } from '../../models/usuario.model.js';
 import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
 import { Obrigacao } from '../../models/obrigacao.model.js';
+import { mock } from 'node:test';
 
 describe('RecomendacaoService', () => {
   let service: RecomendacaoService;
@@ -315,6 +316,124 @@ describe('RecomendacaoService', () => {
         nome: 'Revisão do Regime Tributário',
         descricao: 'Análise do regime tributário atual',
       });
+    });
+  });
+
+  describe('recomendarPlanejamentoTributario', () => {
+    it('deve retornar null se o usuário não for encontrado', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue(null);
+
+      const resultado = await service.recomendarPlanejamentoTributario(99);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null se o usuário não possuir empresa vinculada', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [],
+      } as any);
+
+      const resultado = await service.recomendarPlanejamentoTributario(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null quando a empresa não possuir solicitações', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([]);
+
+      const resultado = await service.recomendarPlanejamentoTributario(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null quando existir solicitação de apenas 1 serviço tributário diferente', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+      ]);
+
+      const resultado = await service.recomendarPlanejamentoTributario(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve contar múltiplas solicitações do mesmo serviço como serviços diferentes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 1 },
+      ]);
+
+      const resultado = await service.recomendarPlanejamentoTributario(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve considerar o próprio serviço 7 (Planejamento Tributário) na contagem', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 7 },
+      ]);
+
+      const resultado = await service.recomendarPlanejamentoTributario(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve considerar serviços fora da lista tributária definida (1 a 6)', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 99 },
+      ]);
+
+      const resultado = await service.recomendarPlanejamentoTributario(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve recomendar Planejamento Tributário quando existirem solicitações de pelo menos 2 serviços tributários diferentes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 6 },
+      ]);
+
+      const resultado = await service.recomendarPlanejamentoTributario(1);
+
+      expect(resultado).toEqual({
+        id: 7,
+        nome: 'Planejamento Tributário',
+        descricao: 'Análise para otimização da carga tributária',
+      });
+      expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
     });
   });
 });
