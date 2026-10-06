@@ -6,7 +6,11 @@ import {
   PrimaryKey,
   AutoIncrement,
   AllowNull,
+  ForeignKey,
+  BelongsTo,
 } from 'sequelize-typescript';
+import { Empresa } from './empresa.model.js';
+import type { NonAttribute } from 'sequelize';
 
 @Table({
   tableName: 'obrigacao_empresa',
@@ -22,6 +26,7 @@ export class ObrigacaoEmpresa extends Model<ObrigacaoEmpresa> {
   @Column({ type: DataType.INTEGER, field: 'id_obrigacao' })
   declare idObrigacao: number;
 
+  @ForeignKey(() => Empresa)
   @AllowNull(false)
   @Column({ type: DataType.INTEGER, field: 'id_empresa' })
   declare idEmpresa: number;
@@ -29,4 +34,7 @@ export class ObrigacaoEmpresa extends Model<ObrigacaoEmpresa> {
   @AllowNull(false)
   @Column({ type: DataType.DATE(3), field: 'created_at' })
   declare createdAt: Date;
+
+  @BelongsTo(() => Empresa, 'idEmpresa')
+  declare empresa: NonAttribute<Empresa>;
 }

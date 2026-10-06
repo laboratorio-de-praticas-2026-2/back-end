@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service.js';
+import { InjectModel } from '@nestjs/sequelize';
+import { Obrigacao, StatusObrigacao } from '../../../models/obrigacao.model.js';
+import { ObrigacaoServico } from '../../../models/obrigacao-servico.model.js';
+import { ObrigacaoEmpresa } from '../../../models/obrigacao-empresa.model.js';
+import { Solicitacao } from '../../../models/solicitacao.model.js';
+import { Empresa } from '../../../models/empresa.model.js';
 import { NotificacaoSocketService } from '../notificacao-socket.service.js';
 import { pertenceAoEscopo } from '../constants/termos-obrigacoes.js';
 import type {
@@ -7,27 +12,21 @@ import type {
   ObrigacaoNotificacao,
 } from '../dto/notificacao-obrigacoes.dto.js';
 
-type ObrigacaoComRelacoes = Awaited<
-  ReturnType<NotificacaoObrigacoesService['buscarObrigacoesPendentes']>
->[number];
+type ObrigacaoComRelacoes = Obrigacao & {
+  obrigacaoServico?: ObrigacaoServico | null;
+  obrigacaoEmpresa?: ObrigacaoEmpresa | null;
+};
 
 @Injectable()
 export class NotificacaoObrigacoesService {
   private readonly logger = new Logger(NotificacaoObrigacoesService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    @InjectModel(Obrigacao)
+    private readonly obrigacaoModel: typeof Obrigacao,
     private readonly notificacaoSocket: NotificacaoSocketService,
   ) {}
 
-  /**
-   * Rotina semanal (issue #115):
-   * 1. Busca obrigações com status = pendente
-   * 2. Filtra pelo escopo (descricao contém termos da Short Release)
-   * 3. Resolve o usuário responsável (via serviço OU empresa)
-   * 4. Agrupa por usuário
-   * 5. Envia UMA notificação por usuário via NotificacaoSocketService
-   */
   async executarRotinaSemanal(): Promise<void> {
     this.logger.log('Iniciando rotina semanal de notificações de obrigações.');
 
@@ -37,7 +36,7 @@ export class NotificacaoObrigacoesService {
       return;
     }
 
-    const noEscopo = obrigacoes.filter((o) => pertenceAoEscopo(o.descricao));
+    const noEscopo = obrigacoes.filter((o) => pertenceAoEscopo(o.descricao ?? ''));
     if (noEscopo.length === 0) {
       this.logger.log('Nenhuma obrigação no escopo da Short Release.');
       return;
@@ -65,49 +64,49 @@ export class NotificacaoObrigacoesService {
     this.logger.log('Rotina semanal finalizada.');
   }
 
-  /**
-   * Busca todas as obrigações com status = pendente e não deletadas,
-   * incluindo os relacionamentos para resolver o usuário responsável.
-   */
-  private async buscarObrigacoesPendentes() {
-    return this.prisma.obrigacao.findMany({
+  private async buscarObrigacoesPendentes(): Promise<ObrigacaoComRelacoes[]> {
+    const resultado = await this.obrigacaoModel.findAll({
       where: {
-        status: 'pendente',
+        status: StatusObrigacao.PENDENTE,
         deletedAt: null,
       },
-      include: {
-        obrigacaoServico: {
-          include: {
-            solicitacao: {
-              select: { usuarioId: true },
+      include: [
+        {
+          model: ObrigacaoServico,
+          include: [
+            {
+              model: Solicitacao,
+              attributes: ['usuarioId'],
             },
-          },
+          ],
         },
-        obrigacaoEmpresa: {
-          include: {
-            empresa: {
-              select: { usuarioId: true },
+        {
+          model: ObrigacaoEmpresa,
+          include: [
+            {
+              model: Empresa,
+              attributes: ['usuarioId'],
             },
-          },
+          ],
         },
-      },
+      ],
     });
+
+    return resultado as ObrigacaoComRelacoes[];
   }
 
-  /**
-   * Resolve o usuário responsável e agrupa as obrigações por usuário.
-   * Precedência: serviço → empresa (conforme a issue).
-   */
   private agruparPorUsuario(
     obrigacoes: ObrigacaoComRelacoes[],
   ): Map<number, ObrigacaoNotificacao[]> {
     const mapa = new Map<number, ObrigacaoNotificacao[]>();
 
     for (const o of obrigacoes) {
-      const usuarioId =
-        o.obrigacaoServico?.solicitacao?.usuarioId ??
-        o.obrigacaoEmpresa?.empresa?.usuarioId ??
-        null;
+      const solicitacao = o.obrigacaoServico?.solicitacao as
+        | Solicitacao
+        | undefined;
+      const empresa = o.obrigacaoEmpresa?.empresa as Empresa | undefined;
+
+      const usuarioId = solicitacao?.usuarioId ?? empresa?.usuarioId ?? null;
 
       if (usuarioId == null) {
         this.logger.warn(
@@ -129,9 +128,6 @@ export class NotificacaoObrigacoesService {
     return mapa;
   }
 
-  /**
-   * Monta o payload único por usuário (formato do exemplo da issue).
-   */
   private montarPayload(
     obrigacoes: ObrigacaoNotificacao[],
   ): NotificacaoObrigacoesPayload {
@@ -148,9 +144,6 @@ export class NotificacaoObrigacoesService {
     };
   }
 
-  /**
-   * Formata o vencimento para YYYY-MM-DD.
-   */
   private formatarVencimento(vencimento: Date | string | null): string {
     if (!vencimento) return '';
     const d =
