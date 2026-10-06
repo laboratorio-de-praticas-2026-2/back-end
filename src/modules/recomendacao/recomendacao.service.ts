@@ -550,5 +550,57 @@ export class RecomendacaoService {
 
     return null;
   }
+
+  async regularizacaoCadastral(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    if (!usuario) {
+      return null;
+    }
+
+    const isVazio = (valor: any): boolean => {
+      return (
+        valor === null ||
+        valor === undefined ||
+        (typeof valor === 'string' && valor.trim() === '')
+      );
+    };
+
+    
+    const usuarioIncompleto =
+      isVazio((usuario as any).cpf_cnpj) || isVazio((usuario as any).celular);
+
+    if (usuarioIncompleto) {
+      return {
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      };
+    }
+
+    
+    const empresa = (usuario as any)?.empresas?.[0];
+    if (empresa) {
+      const empresaIncompleta =
+        isVazio(empresa.nome_fantasia) ||
+        isVazio(empresa.inscricao_estadual) ||
+        isVazio(empresa.inscricao_municipal) ||
+        isVazio(empresa.data_abertura);
+
+      if (empresaIncompleta) {
+        return {
+          id: 8,
+          nome: 'Regularização Cadastral',
+          descricao: 'Correção/regularização de dados cadastrais',
+        };
+      }
+    }
+
+    return null;
+  }
 }
 
