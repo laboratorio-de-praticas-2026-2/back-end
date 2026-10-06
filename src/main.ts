@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Sequelize } from 'sequelize-typescript';
 import { AppModule, ObserveInstrument } from './app.module.js';
 import { validationPipe } from './commons/pipes/validation.pipe.js';
@@ -24,6 +25,14 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Back-end API')
+    .setDescription('Documentacao da API')
+    .setVersion('1.0')
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, swaggerDocument);
 
   const port = process.env.PORT ?? 3333;
   await app.listen(port);
