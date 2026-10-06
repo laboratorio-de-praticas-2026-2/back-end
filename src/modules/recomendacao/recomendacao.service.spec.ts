@@ -1101,4 +1101,173 @@ describe('RecomendacaoService', () => {
       expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
     });
   });
+
+  describe('regularizacaoCadastral', () => {
+    it('deve retornar null se o usuário não for encontrado', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue(null as any);
+
+      const resultado = await service.regularizacaoCadastral(999);
+      expect(resultado).toBeNull();
+    });
+
+    it('deve recomendar Regularização Cadastral quando cpf_cnpj do usuário for null', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: null,
+        celular: '15999999999',
+        empresas: [],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toEqual({
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      });
+    });
+
+    it('deve recomendar Regularização Cadastral quando celular do usuário for vazio', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: '12345678900',
+        celular: '   ',
+        empresas: [],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toEqual({
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      });
+    });
+
+    it('deve recomendar Regularização Cadastral quando nome_fantasia da empresa for null', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: '12345678900',
+        celular: '15999999999',
+        empresas: [
+          {
+            id: 10,
+            nome_fantasia: null,
+            inscricao_estadual: '123456',
+            inscricao_municipal: '789012',
+            data_abertura: new Date('2020-01-10'),
+          },
+        ],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toEqual({
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      });
+    });
+
+    it('deve recomendar Regularização Cadastral quando inscricao_estadual da empresa for vazia', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: '12345678900',
+        celular: '15999999999',
+        empresas: [
+          {
+            id: 10,
+            nome_fantasia: 'Empresa Teste',
+            inscricao_estadual: '',
+            inscricao_municipal: '789012',
+            data_abertura: new Date('2020-01-10'),
+          },
+        ],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toEqual({
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      });
+    });
+
+    it('deve recomendar Regularização Cadastral quando inscricao_municipal da empresa for null', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: '12345678900',
+        celular: '15999999999',
+        empresas: [
+          {
+            id: 10,
+            nome_fantasia: 'Empresa Teste',
+            inscricao_estadual: '123456',
+            inscricao_municipal: null,
+            data_abertura: new Date('2020-01-10'),
+          },
+        ],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toEqual({
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      });
+    });
+
+    it('deve recomendar Regularização Cadastral quando data_abertura da empresa for null', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: '12345678900',
+        celular: '15999999999',
+        empresas: [
+          {
+            id: 10,
+            nome_fantasia: 'Empresa Teste',
+            inscricao_estadual: '123456',
+            inscricao_municipal: '789012',
+            data_abertura: null,
+          },
+        ],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toEqual({
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      });
+    });
+
+    it('deve retornar null quando todos os dados do usuário e da empresa estiverem preenchidos', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: '12345678900',
+        celular: '15999999999',
+        empresas: [
+          {
+            id: 10,
+            nome_fantasia: 'Empresa Exemplo LTDA',
+            inscricao_estadual: '123456',
+            inscricao_municipal: '789012',
+            data_abertura: new Date('2020-01-10'),
+          },
+        ],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null quando usuário não tem empresa mas seus dados cadastrais estão preenchidos', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        cpf_cnpj: '12345678900',
+        celular: '15999999999',
+        empresas: [],
+      } as any);
+
+      const resultado = await service.regularizacaoCadastral(1);
+      expect(resultado).toBeNull();
+    });
+  });
 });
