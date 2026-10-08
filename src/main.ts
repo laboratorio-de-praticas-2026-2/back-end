@@ -1,10 +1,70 @@
+<<<<<<< HEAD
+import 'dotenv/config';
+import { Logger, ValidationPipe } from '@nestjs/common';
+=======
+import { ValidationPipe } from '@nestjs/common';
+>>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
 import { NestFactory } from '@nestjs/core';
+import { Sequelize } from 'sequelize-typescript';
 import { AppModule, ObserveInstrument } from './app.module.js';
+import { validationPipe } from './commons/pipes/validation.pipe.js';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
+  // Observe só é ativado se as credenciais estiverem no .env
+  const observeEnabled =
+    !!process.env.OBSERVE_APP_KEY && !!process.env.OBSERVE_APP_SECRET;
+
   const app = await NestFactory.create(AppModule, {
-    instrument: ObserveInstrument,
+    ...(observeEnabled && { instrument: ObserveInstrument }),
   });
+
+<<<<<<< HEAD
+  app.enableCors();
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+=======
+  // Habilita a validação automática dos DTOs (class-validator)
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+>>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
+      transform: true,
+    }),
+  );
+
+<<<<<<< HEAD
+  const port = process.env.PORT ?? 3333;
+  await app.listen(port);
+
+  // Teste de conexão com o banco
+  try {
+    const sequelize = app.get(Sequelize);
+    await sequelize.authenticate();
+    logger.log('🟩 Conexão com o banco estabelecida');
+  } catch (err) {
+    logger.error('❌ Falha ao conectar no banco', err);
+  }
+
+  // Logs da API
+  logger.log(`🚀 API rodando em http://localhost:${port}`);
+  logger.log(`🌎 Ambiente: ${process.env.NODE_ENV ?? 'development'}`);
+  logger.log(
+    `🗄️ Banco: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+  );
+  logger.log(
+    `📡 Observe: ${observeEnabled ? 'ativado' : 'desativado (sem credenciais)'}`,
+  );
+}
+
+bootstrap();
+=======
   await app.listen(process.env.PORT ?? 3333);
 }
+
 await bootstrap();
+>>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
