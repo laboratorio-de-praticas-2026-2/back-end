@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import 'dotenv/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
+=======
+import { ValidationPipe } from '@nestjs/common';
+>>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
 import { NestFactory } from '@nestjs/core';
 import { Sequelize } from 'sequelize-typescript';
 import { AppModule, ObserveInstrument } from './app.module.js';
@@ -16,15 +20,24 @@ async function bootstrap() {
     ...(observeEnabled && { instrument: ObserveInstrument }),
   });
 
+<<<<<<< HEAD
   app.enableCors();
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+=======
+  // Habilita a validação automática dos DTOs (class-validator)
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+>>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
       transform: true,
     }),
   );
 
+<<<<<<< HEAD
   const port = process.env.PORT ?? 3333;
   await app.listen(port);
 
@@ -49,3 +62,9 @@ async function bootstrap() {
 }
 
 bootstrap();
+=======
+  await app.listen(process.env.PORT ?? 3333);
+}
+
+await bootstrap();
+>>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
