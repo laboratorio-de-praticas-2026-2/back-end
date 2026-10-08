@@ -128,10 +128,10 @@ export class RelatoriosService {
       this.validarValor('multas', dto.multas);
       this.validarValor('honorarios', dto.honorarios);
 
-      const parcelas = dto.parcelas ?? 1;
-      if (!Number.isInteger(parcelas) || parcelas < 1) {
+      const quantidadeParcelas = dto.quantidadeParcelas ?? 1;
+      if (!Number.isInteger(quantidadeParcelas) || quantidadeParcelas < 1) {
         throw new BadRequestException(
-          'parcelas deve ser um número inteiro maior ou igual a 1.',
+          'quantidadeParcelas deve ser um número inteiro maior ou igual a 1.',
         );
       }
 
@@ -142,7 +142,7 @@ export class RelatoriosService {
         );
       }
 
-      const valorParcela = totalRegularizacao / parcelas;
+      const valorParcela = totalRegularizacao / quantidadeParcelas;
       if (!Number.isFinite(valorParcela)) {
         throw new BadRequestException(
           'O valor da parcela deve ser um número finito.',
@@ -154,7 +154,7 @@ export class RelatoriosService {
         multas: dto.multas,
         honorarios: dto.honorarios,
         totalRegularizacao,
-        quantidadeParcelas: parcelas,
+        quantidadeParcelas,
         valorParcela,
       } satisfies SimuladorRegularizacaoFiscalResponseDto;
 

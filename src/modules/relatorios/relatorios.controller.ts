@@ -68,7 +68,7 @@ export class RelatoriosController {
           impostos: 1000,
           multas: 200,
           honorarios: 300,
-          parcelas: 3,
+          quantidadeParcelas: 3,
         },
       },
       invalido: {
@@ -77,7 +77,7 @@ export class RelatoriosController {
           impostos: -100,
           multas: 200,
           honorarios: 300,
-          parcelas: 0,
+          quantidadeParcelas: 0,
         },
       },
     },
@@ -109,7 +109,7 @@ export class RelatoriosController {
         summary: 'Quantidade de parcelas inválida',
         value: {
           statusCode: 400,
-          message: ['parcelas must not be less than 1'],
+          message: ['quantidadeParcelas must not be less than 1'],
           error: 'Bad Request',
         },
       },

@@ -59,5 +59,5 @@ export class SimuladorRegularizacaoFiscalDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  parcelas?: number;
+  quantidadeParcelas?: number;
 }

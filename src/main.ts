@@ -4,7 +4,6 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Sequelize } from 'sequelize-typescript';
 import { AppModule, ObserveInstrument } from './app.module.js';
-import { validationPipe } from './commons/pipes/validation.pipe.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
