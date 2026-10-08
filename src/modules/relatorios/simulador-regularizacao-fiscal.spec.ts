@@ -61,9 +61,11 @@ describe('Simulador de regularização fiscal', () => {
         quantidadeParcelas: 3,
         valorParcela: 500,
       });
+
       expect(resultado.totalRegularizacao).toBe(
         resultado.impostos + resultado.multas + resultado.honorarios,
       );
+
       expect(resultado.valorParcela).toBe(
         resultado.totalRegularizacao / resultado.quantidadeParcelas,
       );
@@ -134,6 +136,7 @@ describe('Simulador de regularização fiscal', () => {
           multas: 50,
           honorarios: 25,
         };
+
         delete entrada[campo];
 
         expect(() =>
@@ -174,18 +177,22 @@ describe('Simulador de regularização fiscal', () => {
         'quantidadeParcelas',
         'valorParcela',
       ]);
+
       expect(
         Object.values(resultado).every((valor) => Number.isFinite(valor)),
       ).toBe(true);
+
       expect(
         Object.values(resultado).every((valor) => valor !== undefined),
       ).toBe(true);
+
       expect(resultado.totalRegularizacao).toBe(0.06);
       expect(resultado.valorParcela).toBe(0.03);
     });
 
     it('converte falha inesperada durante o cálculo em erro interno', () => {
       const serviceComFalha = new RelatoriosService({} as any);
+
       Object.defineProperty(serviceComFalha, 'validarResultado', {
         value: () => {
           throw new Error('falha inesperada');
@@ -198,6 +205,7 @@ describe('Simulador de regularização fiscal', () => {
           multas: 50,
           honorarios: 25,
         });
+
         expect.fail('A simulação deveria lançar um erro interno.');
       } catch (error) {
         expect(error).toBeInstanceOf(InternalServerErrorException);
@@ -228,6 +236,24 @@ describe('Simulador de regularização fiscal', () => {
         multas: 50,
         honorarios: 25,
         quantidadeParcelas: 'muitas',
+      },
+      {
+        impostos: 100,
+        multas: 50,
+        honorarios: 25,
+        quantidadeParcelas: null,
+      },
+      {
+        impostos: 100,
+        multas: 50,
+        honorarios: 25,
+        quantidadeParcelas: true,
+      },
+      {
+        impostos: 100,
+        multas: 50,
+        honorarios: 25,
+        quantidadeParcelas: false,
       },
     ])('rejeita entrada inválida: $input', async (input) => {
       const erros = await validate(

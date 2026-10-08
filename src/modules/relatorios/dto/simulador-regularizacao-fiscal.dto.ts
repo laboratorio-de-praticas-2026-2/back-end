@@ -1,11 +1,13 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 import {
   IsDefined,
   IsInt,
   IsNumber,
-  IsOptional,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class SimuladorRegularizacaoFiscalDto {
@@ -55,8 +57,14 @@ export class SimuladorRegularizacaoFiscalDto {
     minimum: 1,
     example: 3,
   })
-  @IsOptional()
-  @Type(() => Number)
+  @ValidateIf((_, value) => value !== undefined)
+  @Transform(({ value }) => {
+    if (value === null || typeof value === 'boolean') {
+      return value;
+    }
+
+    return Number(value);
+  })
   @IsInt()
   @Min(1)
   quantidadeParcelas?: number;
