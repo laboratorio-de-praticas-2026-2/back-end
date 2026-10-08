@@ -27,6 +27,7 @@ import { TipoAtendimentoModel } from './models/tipo-atendimento.model.js';
 import { ClienteModule } from './modules/cliente/cliente.module.js';
 import { AdministracaoModule } from './modules/administracao/administracao.module.js';
 
+
 import { Usuario } from './models/usuario.model.js';
 import { ObrigacaoEmpresa } from './models/obrigacao-empresa.model.js';
 import { ObrigacaoServico } from './models/obrigacao-servico.model.js';
@@ -36,6 +37,7 @@ import { Parcela } from './models/parcela.model.js';
 import { Solicitacao } from './models/solicitacao.model.js';
 import { DocumentoSolicitacao } from './models/documento-solicitacao.model.js';
 import { Servico } from './models/servico.model.js';
+import { Report } from './models/report.model.js';
 
 
 
@@ -104,6 +106,7 @@ const redisPort = Number(process.env.REDIS_PORT ?? 6379);
           Solicitacao,
           DocumentoSolicitacao,
           Servico,
+          Report,
         ],
 
         synchronize: true,

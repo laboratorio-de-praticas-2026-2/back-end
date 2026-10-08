@@ -1,4 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Op, WhereOptions } from 'sequelize';
 
@@ -7,12 +10,14 @@ import { Report } from '../../models/report.model.js';
 import { CreateReportDto } from './dto/create-report.dto.js';
 import { FindReportsDto } from './dto/find-reports.dto.js';
 import { SimulacaoDto } from './dto/simulacao.dto.js';
+import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
 
 @Injectable()
 export class RelatoriosService {
   constructor(
     @InjectModel(Report)
     private readonly reportModel: typeof Report,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(data: CreateReportDto) {
@@ -23,6 +28,29 @@ export class RelatoriosService {
       dataInicio: new Date(data.data_inicio),
       dataTermino: new Date(data.data_termino),
     });
+  }
+
+  async findById(id: string) {
+    const report = await this.reportModel.findByPk(id);
+
+    if (!report) {
+      throw new NotFoundException('Relatório não encontrado');
+    }
+
+    return report;
+  }
+
+  async updateStatus(
+    id: string,
+    status: 'PENDENTE' | 'GERADO' | 'FALHA',
+  ) {
+    const report = await this.findById(id);
+
+    await report.update({
+      status,
+    });
+
+    return report;
   }
 
   async findCategories() {
@@ -87,6 +115,33 @@ export class RelatoriosService {
       total: count,
       pagina: page,
       limite: limit,
+      temProximaPagina: offset + rows.length < count,
+    };
+  }
+
+  async delete(id: string) {
+    const report = await this.findById(id);
+
+    if (report.arquivoUrl) {
+      const url = new URL(report.arquivoUrl);
+      const partes = url.pathname.split('/').filter(Boolean);
+      const uploadIndex = partes.indexOf('upload');
+
+      if (uploadIndex !== -1) {
+        const publicId = partes
+          .slice(uploadIndex + 1)
+          .filter((parte) => !/^v\d+$/.test(parte))
+          .join('/');
+
+        await this.cloudinaryService.deletePdf(publicId);
+      }
+    }
+
+    await report.destroy();
+
+    return {
+      mensagem: 'Relatório excluído com sucesso',
+      id: report.id,
     };
   }
 
