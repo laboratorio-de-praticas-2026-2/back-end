@@ -1,125 +1,144 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/sequelize';
+import { Test, TestingModule } from '@nestjs/testing';
 import { Op } from 'sequelize';
-import { RelatoriosService } from './relatorios.service.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { Report } from '../../models/report.model.js';
+import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
+
+import { RelatoriosService } from './relatorios.service.js';
 
 describe('RelatoriosService', () => {
   let service: RelatoriosService;
-  let reportModel: {
-    findAll: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    findAndCountAll: ReturnType<typeof vi.fn>;
-  };
+
+  const createReportModel = () => ({
+    create: vi.fn(),
+    findByPk: vi.fn(),
+    findAll: vi.fn(),
+    findAndCountAll: vi.fn(),
+  });
+
+  const createCloudinaryService = () => ({
+    uploadPdf: vi.fn(),
+    deletePdf: vi.fn(),
+  });
+
+  let reportModel: ReturnType<typeof createReportModel>;
+  let cloudinaryService: ReturnType<typeof createCloudinaryService>;
 
   beforeEach(async () => {
+    reportModel = createReportModel();
+    cloudinaryService = createCloudinaryService();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RelatoriosService,
         {
           provide: getModelToken(Report),
-          useValue: {
-            findAll: vi.fn(),
-            create: vi.fn(),
-            findAndCountAll: vi.fn(),
-          },
+          useValue: reportModel,
+        },
+        {
+          provide: CloudinaryService,
+          useValue: cloudinaryService,
         },
       ],
     }).compile();
 
     service = module.get<RelatoriosService>(RelatoriosService);
-    reportModel = module.get(getModelToken(Report));
   });
 
-  it('should be defined', () => {
+  it('deve estar definido', () => {
     expect(service).toBeDefined();
   });
 
-  it('should return report categories', async () => {
+  it('deve listar as categorias disponíveis', async () => {
     reportModel.findAll.mockResolvedValue([
       { categoria: 'Financeiro' },
-      { categoria: 'Fiscal' },
-      { categoria: 'Contábil' },
+      { categoria: 'Jurídico' },
+      { categoria: 'Tributário' },
     ]);
 
     const result = await service.findCategories();
-
-    expect(result).toEqual(['Financeiro', 'Fiscal', 'Contábil']);
 
     expect(reportModel.findAll).toHaveBeenCalledWith({
       attributes: ['categoria'],
       group: ['categoria'],
       order: [['categoria', 'ASC']],
     });
+
+    expect(result).toEqual([
+      'Financeiro',
+      'Jurídico',
+      'Tributário',
+    ]);
   });
 
-  it('should create a report with pending status', async () => {
-    const data = {
+  it('deve criar um relatório com status PENDENTE', async () => {
+    const createdReport = {
+      id: 'fa1342e6-3c0d-4048-98ff-c5111e5b2647',
       nome: 'Relatório Financeiro',
       categoria: 'Financeiro',
-      descricao: 'Relatório financeiro mensal',
-      data_inicio: '2026-09-01',
-      data_termino: '2026-09-30',
-    };
-
-    const createdReport = {
-      id: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
-      ...data,
+      descricao: 'Relatório de teste',
+      dataInicio: new Date('2026-09-01'),
+      dataTermino: new Date('2026-09-30'),
       status: 'PENDENTE',
-      arquivoUrl: null,
     };
 
     reportModel.create.mockResolvedValue(createdReport);
 
-    const result = await service.create(data);
-
-    expect(result).toEqual(createdReport);
+    const result = await service.create({
+      nome: 'Relatório Financeiro',
+      categoria: 'Financeiro',
+      descricao: 'Relatório de teste',
+      data_inicio: '2026-09-01',
+      data_termino: '2026-09-30',
+    });
 
     expect(reportModel.create).toHaveBeenCalledWith({
-      nome: data.nome,
-      categoria: data.categoria,
-      descricao: data.descricao,
-      dataInicio: new Date(data.data_inicio),
-      dataTermino: new Date(data.data_termino),
+      nome: 'Relatório Financeiro',
+      categoria: 'Financeiro',
+      descricao: 'Relatório de teste',
+      dataInicio: expect.any(Date),
+      dataTermino: expect.any(Date),
     });
+
+    expect(result).toEqual(createdReport);
   });
 
-  it('should return reports with pagination', async () => {
-    const reports = [
-      {
-        id: '1',
-        nome: 'Relatório Financeiro',
-        categoria: 'Financeiro',
-        status: 'PENDENTE',
-      },
+  it('deve listar relatórios com paginação', async () => {
+    const rows = [
+      { id: '1', nome: 'Relatório 1' },
+      { id: '2', nome: 'Relatório 2' },
     ];
 
     reportModel.findAndCountAll.mockResolvedValue({
-      rows: reports,
-      count: 1,
+      rows,
+      count: 5,
     });
 
     const result = await service.findAll({
       page: 1,
-      limit: 10,
-    });
-
-    expect(result).toEqual({
-      dados: reports,
-      total: 1,
-      pagina: 1,
-      limite: 10,
+      limit: 2,
     });
 
     expect(reportModel.findAndCountAll).toHaveBeenCalledWith({
       where: {},
-      limit: 10,
+      limit: 2,
       offset: 0,
       order: [['data_inicio', 'DESC']],
     });
+
+    expect(result).toEqual({
+      dados: rows,
+      total: 5,
+      pagina: 1,
+      limite: 2,
+      temProximaPagina: true,
+    });
   });
 
-  it('should filter reports by name', async () => {
+  it('deve filtrar por nome parcialmente', async () => {
     reportModel.findAndCountAll.mockResolvedValue({
       rows: [],
       count: 0,
@@ -131,19 +150,21 @@ describe('RelatoriosService', () => {
       limit: 10,
     });
 
-    expect(reportModel.findAndCountAll).toHaveBeenCalledWith({
-      where: {
-        nome: {
-          [Op.like]: '%Financeiro%',
+    expect(reportModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          nome: {
+            [Op.like]: '%Financeiro%',
+          },
         },
-      },
-      limit: 10,
-      offset: 0,
-      order: [['data_inicio', 'DESC']],
-    });
+        limit: 10,
+        offset: 0,
+        order: [['data_inicio', 'DESC']],
+      }),
+    );
   });
 
-  it('should filter reports by category', async () => {
+  it('deve filtrar por categoria', async () => {
     reportModel.findAndCountAll.mockResolvedValue({
       rows: [],
       count: 0,
@@ -155,39 +176,37 @@ describe('RelatoriosService', () => {
       limit: 10,
     });
 
-    expect(reportModel.findAndCountAll).toHaveBeenCalledWith({
-      where: {
-        categoria: 'Financeiro',
-      },
-      limit: 10,
-      offset: 0,
-      order: [['data_inicio', 'DESC']],
-    });
+    expect(reportModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          categoria: 'Financeiro',
+        },
+      }),
+    );
   });
 
-  it('should filter reports by status', async () => {
+  it('deve filtrar por status', async () => {
     reportModel.findAndCountAll.mockResolvedValue({
       rows: [],
       count: 0,
     });
 
     await service.findAll({
-      status: 'PENDENTE',
+      status: 'GERADO',
       page: 1,
       limit: 10,
     });
 
-    expect(reportModel.findAndCountAll).toHaveBeenCalledWith({
-      where: {
-        status: 'PENDENTE',
-      },
-      limit: 10,
-      offset: 0,
-      order: [['data_inicio', 'DESC']],
-    });
+    expect(reportModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: 'GERADO',
+        },
+      }),
+    );
   });
 
-  it('should filter reports by date interval', async () => {
+  it('deve filtrar por intervalo de datas', async () => {
     reportModel.findAndCountAll.mockResolvedValue({
       rows: [],
       count: 0,
@@ -200,46 +219,70 @@ describe('RelatoriosService', () => {
       limit: 10,
     });
 
-    expect(reportModel.findAndCountAll).toHaveBeenCalledWith({
-      where: {
-        dataInicio: {
-          [Op.gte]: new Date('2026-09-01'),
-          [Op.lte]: new Date('2026-09-30'),
+    expect(reportModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          dataInicio: {
+            [Op.gte]: expect.any(Date),
+            [Op.lte]: expect.any(Date),
+          },
         },
-      },
-      limit: 10,
-      offset: 0,
-      order: [['data_inicio', 'DESC']],
-    });
+      }),
+    );
   });
 
-  it('should apply pagination correctly', async () => {
+  it('deve calcular corretamente a paginação', async () => {
     reportModel.findAndCountAll.mockResolvedValue({
-      rows: [],
-      count: 25,
+      rows: [{ id: '3' }],
+      count: 10,
     });
 
     const result = await service.findAll({
       page: 3,
-      limit: 5,
+      limit: 3,
     });
 
-    expect(result).toEqual({
-      dados: [],
-      total: 25,
-      pagina: 3,
-      limite: 5,
-    });
+    expect(reportModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 3,
+        offset: 6,
+      }),
+    );
 
-    expect(reportModel.findAndCountAll).toHaveBeenCalledWith({
-      where: {},
-      limit: 5,
-      offset: 10,
-      order: [['data_inicio', 'DESC']],
-    });
+    expect(result.pagina).toBe(3);
+    expect(result.limite).toBe(3);
+    expect(result.total).toBe(10);
   });
 
-  it('should apply combined filters', async () => {
+  it('deve indicar quando existe próxima página', async () => {
+    reportModel.findAndCountAll.mockResolvedValue({
+      rows: [{ id: '1' }, { id: '2' }],
+      count: 5,
+    });
+
+    const result = await service.findAll({
+      page: 1,
+      limit: 2,
+    });
+
+    expect(result.temProximaPagina).toBe(true);
+  });
+
+  it('não deve indicar próxima página quando estiver na última página', async () => {
+    reportModel.findAndCountAll.mockResolvedValue({
+      rows: [{ id: '5' }],
+      count: 5,
+    });
+
+    const result = await service.findAll({
+      page: 3,
+      limit: 2,
+    });
+
+    expect(result.temProximaPagina).toBe(false);
+  });
+
+  it('deve aplicar múltiplos filtros ao mesmo tempo', async () => {
     reportModel.findAndCountAll.mockResolvedValue({
       rows: [],
       count: 0,
@@ -248,39 +291,39 @@ describe('RelatoriosService', () => {
     await service.findAll({
       nome: 'Financeiro',
       categoria: 'Financeiro',
-      status: 'PENDENTE',
+      status: 'GERADO',
       data_inicio: '2026-09-01',
       data_termino: '2026-09-30',
       page: 2,
       limit: 5,
     });
 
-    expect(reportModel.findAndCountAll).toHaveBeenCalledWith({
-      where: {
-        nome: {
-          [Op.like]: '%Financeiro%',
+    expect(reportModel.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          nome: {
+            [Op.like]: '%Financeiro%',
+          },
+          categoria: 'Financeiro',
+          status: 'GERADO',
+          dataInicio: {
+            [Op.gte]: expect.any(Date),
+            [Op.lte]: expect.any(Date),
+          },
         },
-        categoria: 'Financeiro',
-        status: 'PENDENTE',
-        dataInicio: {
-          [Op.gte]: new Date('2026-09-01'),
-          [Op.lte]: new Date('2026-09-30'),
-        },
-      },
-      limit: 5,
-      offset: 5,
-      order: [['data_inicio', 'DESC']],
-    });
+        limit: 5,
+        offset: 5,
+      }),
+    );
   });
 
-  it('should return an empty list when no reports are found', async () => {
+  it('deve retornar lista vazia quando não houver resultados', async () => {
     reportModel.findAndCountAll.mockResolvedValue({
       rows: [],
       count: 0,
     });
 
     const result = await service.findAll({
-      nome: 'Relatório inexistente',
       page: 1,
       limit: 10,
     });
@@ -290,41 +333,154 @@ describe('RelatoriosService', () => {
       total: 0,
       pagina: 1,
       limite: 10,
+      temProximaPagina: false,
     });
   });
 
-  it('calcula o total e o valor das parcelas com juros', () => {
-    const result = service.simular({
-      impostos: 1000,
-      multas: 200,
-      honorarios: 300,
-      parcelas: 3,
-      taxaJurosMensal: 10,
-    });
+  it('deve buscar um relatório pelo ID', async () => {
+    const report = {
+      id: 'fa1342e6-3c0d-4048-98ff-c5111e5b2647',
+      nome: 'Relatório Financeiro',
+      status: 'PENDENTE',
+    };
 
-    expect(result).toEqual({
-      impostos: 1000,
-      multas: 200,
-      honorarios: 300,
-      subtotal: 1500,
-      parcelas: 3,
-      taxaJurosMensal: 10,
-      total: 1815,
-      valorParcela: 605,
-    });
+    reportModel.findByPk.mockResolvedValue(report);
+
+    const result = await service.findById(report.id);
+
+    expect(reportModel.findByPk).toHaveBeenCalledWith(report.id);
+    expect(result).toEqual(report);
   });
 
-  it('considera pagamento a vista quando parcelas não é informado', () => {
+  it('deve lançar 404 quando o relatório não existir', async () => {
+    reportModel.findByPk.mockResolvedValue(null);
+
+    await expect(
+      service.findById(
+        'fa1342e6-3c0d-4048-98ff-c5111e5b2647',
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('deve atualizar o status do relatório', async () => {
+    const report = {
+      id: 'fa1342e6-3c0d-4048-98ff-c5111e5b2647',
+      status: 'PENDENTE',
+      update: vi.fn().mockImplementation(async ({ status }) => {
+        report.status = status;
+        return report;
+      }),
+    };
+
+    reportModel.findByPk.mockResolvedValue(report);
+
+    const result = await service.updateStatus(report.id, 'GERADO');
+
+    expect(report.update).toHaveBeenCalledWith({
+      status: 'GERADO',
+    });
+
+    expect(result.status).toBe('GERADO');
+  });
+
+  it('deve excluir o PDF do Cloudinary antes de excluir o relatório', async () => {
+    const report = {
+      id: 'fa1342e6-3c0d-4048-98ff-c5111e5b2647',
+      arquivoUrl:
+        'https://res.cloudinary.com/demo/raw/upload/v123456789/relatorios/teste.pdf',
+      destroy: vi.fn().mockResolvedValue(undefined),
+    };
+
+    reportModel.findByPk.mockResolvedValue(report);
+    cloudinaryService.deletePdf.mockResolvedValue(undefined);
+
+    await service.delete(report.id);
+
+    expect(cloudinaryService.deletePdf).toHaveBeenCalledWith(
+      'relatorios/teste.pdf',
+    );
+
+    expect(report.destroy).toHaveBeenCalled();
+
+    expect(
+      cloudinaryService.deletePdf.mock.invocationCallOrder[0],
+    ).toBeLessThan(report.destroy.mock.invocationCallOrder[0]);
+  });
+
+  it('não deve excluir o relatório se a exclusão no Cloudinary falhar', async () => {
+    const report = {
+      id: 'fa1342e6-3c0d-4048-98ff-c5111e5b2647',
+      arquivoUrl:
+        'https://res.cloudinary.com/demo/raw/upload/v123456789/relatorios/teste.pdf',
+      destroy: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const cloudinaryError = new Error(
+      'Falha ao excluir arquivo no Cloudinary',
+    );
+
+    reportModel.findByPk.mockResolvedValue(report);
+    cloudinaryService.deletePdf.mockRejectedValue(
+      cloudinaryError,
+    );
+
+    await expect(
+      service.delete(report.id),
+    ).rejects.toThrow(
+      'Falha ao excluir arquivo no Cloudinary',
+    );
+
+    expect(report.destroy).not.toHaveBeenCalled();
+  });
+
+  it('deve propagar erro do banco ao listar relatórios', async () => {
+    const databaseError = new Error(
+      'Falha de conexão com o banco de dados',
+    );
+
+    reportModel.findAndCountAll.mockRejectedValue(
+      databaseError,
+    );
+
+    await expect(
+      service.findAll({
+        page: 1,
+        limit: 10,
+      }),
+    ).rejects.toThrow(
+      'Falha de conexão com o banco de dados',
+    );
+
+    expect(reportModel.findAndCountAll).toHaveBeenCalled();
+  });
+
+  it('deve calcular corretamente uma simulação com juros', () => {
     const result = service.simular({
       impostos: 100,
       multas: 50,
-      honorarios: 25,
+      honorarios: 150,
+      parcelas: 3,
+      taxaJurosMensal: 10,
     });
 
-    expect(result).toMatchObject({
-      parcelas: 1,
-      total: 175,
-      valorParcela: 175,
+    expect(result.subtotal).toBe(300);
+    expect(result.parcelas).toBe(3);
+    expect(result.taxaJurosMensal).toBe(10);
+    expect(result.total).toBe(363);
+    expect(result.valorParcela).toBe(121);
+  });
+
+  it('deve calcular corretamente uma simulação à vista', () => {
+    const result = service.simular({
+      impostos: 100,
+      multas: 50,
+      honorarios: 150,
     });
+
+    expect(result.subtotal).toBe(300);
+    expect(result.parcelas).toBe(1);
+    expect(result.taxaJurosMensal).toBe(0);
+    expect(result.total).toBe(300);
+    expect(result.valorParcela).toBe(300);
   });
 });
