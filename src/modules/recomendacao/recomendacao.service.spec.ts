@@ -1270,4 +1270,220 @@ describe('RecomendacaoService', () => {
       expect(resultado).toBeNull();
     });
   });
+
+  describe('consultoriaContabil', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('deve recomendar Consultoria Contábil quando existirem solicitações de pelo menos 3 serviços diferentes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 2 },
+        { servicoId: 6 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toEqual({
+        id: 9,
+        nome: 'Consultoria Contábil',
+        descricao: 'Atendimento para análise de questões contábeis',
+      });
+    });
+
+    it('deve retornar os dados estritamente no formato id, nome e descricao', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 2 },
+        { servicoId: 3 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
+    });
+
+    it('deve retornar null quando existirem solicitações de apenas 2 serviços diferentes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 2 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve contar múltiplas solicitações do mesmo serviço como apenas um serviço', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 1 },
+        { servicoId: 2 },
+        { servicoId: 6 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toEqual({
+        id: 9,
+        nome: 'Consultoria Contábil',
+        descricao: 'Atendimento para análise de questões contábeis',
+      });
+    });
+
+    it('não deve considerar o serviço 9 na contagem dos serviços diferentes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 2 },
+        { servicoId: 9 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null quando a empresa já possuir uma solicitação do serviço 9 mesmo tendo 3 outros serviços', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1 },
+        { servicoId: 2 },
+        { servicoId: 6 },
+        { servicoId: 9 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve recomendar quando o serviço 9 for a única solicitação além de outros 2 serviços', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 3 },
+        { servicoId: 4 },
+        { servicoId: 9 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve identificar corretamente as solicitações através do empresaId', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 15 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([]);
+
+      await service.consultoriaContabil(1);
+
+      expect(solicitacaoModelMock.findAll).toHaveBeenCalledWith({
+        where: {
+          empresaId: 15,
+        },
+      });
+    });
+
+    it('deve identificar corretamente os serviços através do servicoId da solicitação', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 10 },
+        { servicoId: 11 },
+        { servicoId: 12 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).not.toBeNull();
+      expect(resultado?.id).toBe(9);
+    });
+
+    it('deve retornar null quando não houver empresa vinculada ao usuário', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [],
+      } as any);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('deve retornar null quando a empresa não possuir solicitações suficientes', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(resultado).toBeNull();
+    });
+
+    it('não deve utilizar datas para determinar a condição da recomendação', async () => {
+      vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
+        id: 1,
+        empresas: [{ id: 10 }],
+      } as any);
+
+      solicitacaoModelMock.findAll.mockResolvedValue([
+        { servicoId: 1, data_solicitacao: new Date('2026-01-01') },
+        { servicoId: 2, data_conclusao: new Date('2026-02-01') },
+        { servicoId: 3 },
+      ]);
+
+      const resultado = await service.consultoriaContabil(1);
+
+      expect(solicitacaoModelMock.findAll).toHaveBeenCalledWith({
+        where: {
+          empresaId: 10,
+        },
+      });
+      expect(resultado).not.toBeNull();
+      expect(resultado?.id).toBe(9);
+    });
+  });
 });

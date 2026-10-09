@@ -602,5 +602,45 @@ export class RecomendacaoService {
 
     return null;
   }
+
+  async consultoriaContabil(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      where: {
+        empresaId: empresa.id,
+      },
+    });
+
+    const servicosId = solicitacoes.map((s) => s.servicoId);
+
+    if (servicosId.includes(9)) {
+      return null;
+    }
+
+    const servicosDistintos = new Set(
+      servicosId.filter((id) => id !== 9),
+    );
+
+    if (servicosDistintos.size >= 3) {
+      return {
+        id: 9,
+        nome: 'Consultoria Contábil',
+        descricao: 'Atendimento para ánalise de questões contábeis',
+      };
+    }
+
+    return null;
+  }
 }
 
