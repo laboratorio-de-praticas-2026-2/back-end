@@ -9,15 +9,17 @@ import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
 import { Servico } from '../../models/servico.model.js';
 import { Pagamento, TipoPagamento } from '../../models/pagamento.model.js';
 
-
-const NOME_SERVICO_REGULARIZACAO_DEBITOS = 'Regularização de Débitos Fiscais';
-
-const NOME_SERVICO_PARCELAMENTO_DEBITOS = 'Parcelamento de Débitos Fiscais';
-
-const NOME_SERVICO_RECURSO_MULTA = 'Recurso de Multa/Infração Fiscal';
-
-const NOME_SERVICO_ENTREGA_OBRIGACOES_ACESSORIAS =
-  'Entrega de Obrigações Acessórias';
+const SERVICO_ID = {
+  REGULARIZACAO_DEBITOS_FISCAIS: 1,
+  PARCELAMENTO_DEBITOS_FISCAIS: 2,
+  RECURSO_MULTA_INFRACAO_FISCAL: 3,
+  ENTREGA_OBRIGACOES_ACESSORIAS: 4,
+  REGULARIZACAO_OBRIGACOES_FISCAIS: 5,
+  REVISAO_REGIME_TRIBUTARIO: 6,
+  PLANEJAMENTO_TRIBUTARIO: 7,
+  REGULARIZACAO_CADASTRAL: 8,
+  CONSULTORIA_CONTABIL: 9,
+} as const;
 
 export interface AtributoPerfil {
   nome: string;
@@ -109,12 +111,11 @@ export class RecomendacaoService {
   async verificarRecomendacaoRegularizacaoObrigacoesFiscais(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
-    
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
 
-    const empresa  = (usuario as any)?.empresas?.[0];
+    const empresa = (usuario as any)?.empresas?.[0];
 
     if (!empresa?.id) {
       return null;
@@ -149,7 +150,7 @@ export class RecomendacaoService {
               model: Servico,
               as: 'servico',
               where: {
-                id: 5,
+                id: SERVICO_ID.REGULARIZACAO_OBRIGACOES_FISCAIS,
               },
               required: true,
             },
@@ -182,7 +183,6 @@ export class RecomendacaoService {
   async verificarRecomendacaoRegularizacaoDebitosFiscais(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
-
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
@@ -192,7 +192,7 @@ export class RecomendacaoService {
     if (!empresa?.id) {
       return null;
     }
-    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
+
     const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
       where: { idEmpresa: empresa.id },
     });
@@ -203,13 +203,11 @@ export class RecomendacaoService {
 
     const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
 
-    // 5-8. OBRIGACAO_SERVICO -> SERVICO, filtrando por nome e status pendente
     const obrigacaoValida = await Obrigacao.findOne({
       where: {
         id: idsObrigacoes,
         status: StatusObrigacao.PENDENTE,
       },
-
       include: [
         {
           model: ObrigacaoServico,
@@ -219,7 +217,9 @@ export class RecomendacaoService {
             {
               model: Servico,
               as: 'servico',
-              where: { nome: NOME_SERVICO_REGULARIZACAO_DEBITOS },
+              where: {
+                id: SERVICO_ID.REGULARIZACAO_DEBITOS_FISCAIS,
+              },
               required: true,
             },
           ],
@@ -237,7 +237,6 @@ export class RecomendacaoService {
       return null;
     }
 
-    // 9. Retorna somente id, nome e descricao
     return {
       id: servico.id,
       nome: servico.nome,
@@ -253,7 +252,6 @@ export class RecomendacaoService {
   async verificarRecomendacaoParcelamentoDebitosFiscais(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
-    // 1-2. Identifica a empresa vinculada ao usuário
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
@@ -264,7 +262,6 @@ export class RecomendacaoService {
       return null;
     }
 
-    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
     const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
       where: { idEmpresa: empresa.id },
     });
@@ -275,8 +272,6 @@ export class RecomendacaoService {
 
     const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
 
-    // 5-10. OBRIGACAO_SERVICO -> SERVICO (nome), status pendente
-    // e PAGAMENTO parcelado (LEFT JOIN: required: false)
     const obrigacoes = await Obrigacao.findAll({
       where: {
         id: idsObrigacoes,
@@ -291,7 +286,9 @@ export class RecomendacaoService {
             {
               model: Servico,
               as: 'servico',
-              where: { nome: NOME_SERVICO_PARCELAMENTO_DEBITOS },
+              where: {
+                id: SERVICO_ID.PARCELAMENTO_DEBITOS_FISCAIS,
+              },
               required: true,
             },
           ],
@@ -305,7 +302,6 @@ export class RecomendacaoService {
       ],
     });
 
-    // 11. Primeira obrigação SEM pagamento parcelado
     const obrigacaoValida = obrigacoes.find(
       (obrigacao) => !(obrigacao as any).pagamento,
     );
@@ -334,7 +330,6 @@ export class RecomendacaoService {
   async verificarRecomendacaoRecursoMultaInfracaoFiscal(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
-    // 1-2. Identifica a empresa vinculada ao usuário
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
@@ -345,7 +340,6 @@ export class RecomendacaoService {
       return null;
     }
 
-    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
     const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
       where: { idEmpresa: empresa.id },
     });
@@ -356,7 +350,6 @@ export class RecomendacaoService {
 
     const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
 
-    // 5-8. Status pendente + OBRIGACAO_SERVICO -> SERVICO pelo nome
     const obrigacaoValida = await Obrigacao.findOne({
       where: {
         id: idsObrigacoes,
@@ -371,7 +364,9 @@ export class RecomendacaoService {
             {
               model: Servico,
               as: 'servico',
-              where: { nome: NOME_SERVICO_RECURSO_MULTA },
+              where: {
+                id: SERVICO_ID.RECURSO_MULTA_INFRACAO_FISCAL,
+              },
               required: true,
             },
           ],
@@ -389,7 +384,6 @@ export class RecomendacaoService {
       return null;
     }
 
-    // 9. Retorna somente id, nome e descricao
     return {
       id: servico.id,
       nome: servico.nome,
@@ -404,7 +398,6 @@ export class RecomendacaoService {
   async verificarRecomendacaoEntregaObrigacoesAcessorias(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
-    // 1-2. Identifica a empresa vinculada ao usuário
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
@@ -415,7 +408,6 @@ export class RecomendacaoService {
       return null;
     }
 
-    // 3-4. OBRIGACAO_EMPRESA -> obrigações da empresa
     const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
       where: { idEmpresa: empresa.id },
     });
@@ -426,7 +418,6 @@ export class RecomendacaoService {
 
     const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
 
-    // 5-8. Status pendente + OBRIGACAO_SERVICO -> SERVICO pelo nome
     const obrigacaoValida = await Obrigacao.findOne({
       where: {
         id: idsObrigacoes,
@@ -441,7 +432,9 @@ export class RecomendacaoService {
             {
               model: Servico,
               as: 'servico',
-              where: { nome: NOME_SERVICO_ENTREGA_OBRIGACOES_ACESSORIAS },
+              where: {
+                id: SERVICO_ID.ENTREGA_OBRIGACOES_ACESSORIAS,
+              },
               required: true,
             },
           ],
@@ -459,13 +452,13 @@ export class RecomendacaoService {
       return null;
     }
 
-    // 9. Retorna somente id, nome e descricao
     return {
       id: servico.id,
       nome: servico.nome,
       descricao: servico.descricao ?? '',
     };
   }
+
   async recomendarRevisaoRegime(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto | null> {
@@ -504,7 +497,7 @@ export class RecomendacaoService {
 
     if (competenciasDistintas.size >= 3) {
       return {
-        id: 1,
+        id: SERVICO_ID.REVISAO_REGIME_TRIBUTARIO,
         nome: 'Revisão do Regime Tributário',
         descricao: 'Análise do regime tributário atual',
       };
@@ -515,7 +508,7 @@ export class RecomendacaoService {
 
   async recomendarPlanejamentoTributario(
     usuarioId: number,
-  ) : Promise<RecomendacaoRespostaDto | null> {
+  ): Promise<RecomendacaoRespostaDto | null> {
     const usuario = await Usuario.findByPk(usuarioId, {
       include: ['empresas'],
     });
@@ -532,17 +525,24 @@ export class RecomendacaoService {
       },
     });
 
-    const servicosTributariosValidos = new Set([1, 2, 3, 4, 5, 6]);
+    const servicosTributariosValidos = new Set<number>([
+      SERVICO_ID.REGULARIZACAO_DEBITOS_FISCAIS,
+      SERVICO_ID.PARCELAMENTO_DEBITOS_FISCAIS,
+      SERVICO_ID.RECURSO_MULTA_INFRACAO_FISCAL,
+      SERVICO_ID.ENTREGA_OBRIGACOES_ACESSORIAS,
+      SERVICO_ID.REGULARIZACAO_OBRIGACOES_FISCAIS,
+      SERVICO_ID.REVISAO_REGIME_TRIBUTARIO,
+    ]);
 
     const servicosDistintos = new Set(
       solicitacoes
-        .map((s) => s.servicoId)
+        .map((s) => Number(s.servicoId))
         .filter((servicoId) => servicosTributariosValidos.has(servicoId)),
     );
 
     if (servicosDistintos.size >= 2) {
       return {
-        id: 7,
+        id: SERVICO_ID.PLANEJAMENTO_TRIBUTARIO,
         nome: 'Planejamento Tributário',
         descricao: 'Análise para otimização da carga tributária',
       };
@@ -570,20 +570,20 @@ export class RecomendacaoService {
       );
     };
 
-    
     const usuarioIncompleto =
-      isVazio((usuario as any).cpf_cnpj) || isVazio((usuario as any).celular);
+      isVazio((usuario as any).cpf_cnpj) ||
+      isVazio((usuario as any).celular);
 
     if (usuarioIncompleto) {
       return {
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       };
     }
 
-    
     const empresa = (usuario as any)?.empresas?.[0];
+
     if (empresa) {
       const empresaIncompleta =
         isVazio(empresa.nome_fantasia) ||
@@ -593,7 +593,7 @@ export class RecomendacaoService {
 
       if (empresaIncompleta) {
         return {
-          id: 8,
+          id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
           nome: 'Regularização Cadastral',
           descricao: 'Correção/regularização de dados cadastrais',
         };
@@ -624,17 +624,17 @@ export class RecomendacaoService {
 
     const servicosId = solicitacoes.map((s) => s.servicoId);
 
-    if (servicosId.includes(9)) {
+    if (servicosId.includes(SERVICO_ID.CONSULTORIA_CONTABIL)) {
       return null;
     }
 
     const servicosDistintos = new Set(
-      servicosId.filter((id) => id !== 9),
+      servicosId.filter((id) => id !== SERVICO_ID.CONSULTORIA_CONTABIL),
     );
 
     if (servicosDistintos.size >= 3) {
       return {
-        id: 9,
+        id: SERVICO_ID.CONSULTORIA_CONTABIL,
         nome: 'Consultoria Contábil',
         descricao: 'Atendimento para análise de questões contábeis',
       };
@@ -643,7 +643,6 @@ export class RecomendacaoService {
     return null;
   }
 
-  
   async obterRecomendacao(
     usuarioId: number,
   ): Promise<RecomendacaoRespostaDto[]> {
@@ -670,6 +669,4 @@ export class RecomendacaoService {
 
     return this.buscarServicosPopulares();
   }
-
 }
-

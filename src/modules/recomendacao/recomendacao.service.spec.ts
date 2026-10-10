@@ -8,6 +8,18 @@ import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
 import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
 import { TipoPagamento } from '../../models/pagamento.model.js';
 
+const SERVICO_ID = {
+  REGULARIZACAO_DEBITOS_FISCAIS: 1,
+  PARCELAMENTO_DEBITOS_FISCAIS: 2,
+  RECURSO_MULTA_INFRACAO_FISCAL: 3,
+  ENTREGA_OBRIGACOES_ACESSORIAS: 4,
+  REGULARIZACAO_OBRIGACOES_FISCAIS: 5,
+  REVISAO_REGIME_TRIBUTARIO: 6,
+  PLANEJAMENTO_TRIBUTARIO: 7,
+  REGULARIZACAO_CADASTRAL: 8,
+  CONSULTORIA_CONTABIL: 9,
+} as const;
+
 describe('RecomendacaoService', () => {
   let service: RecomendacaoService;
 
@@ -29,6 +41,10 @@ describe('RecomendacaoService', () => {
     service = module.get<RecomendacaoService>(RecomendacaoService);
 
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('should be defined', () => {
@@ -172,10 +188,10 @@ describe('RecomendacaoService', () => {
 
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
-        status: 'pendente',
+        status: StatusObrigacao.PENDENTE,
         obrigacaoServico: {
           servico: {
-            id: 5,
+            id: SERVICO_ID.REGULARIZACAO_OBRIGACOES_FISCAIS,
             nome: 'Regularização de Obrigações Fiscais',
             descricao: 'Serviço para regularizar débitos fiscais',
           },
@@ -186,7 +202,7 @@ describe('RecomendacaoService', () => {
         await service.verificarRecomendacaoRegularizacaoObrigacoesFiscais(1);
 
       expect(resultado).toEqual({
-        id: 5,
+        id: SERVICO_ID.REGULARIZACAO_OBRIGACOES_FISCAIS,
         nome: 'Regularização de Obrigações Fiscais',
         descricao: 'Serviço para regularizar débitos fiscais',
       });
@@ -236,18 +252,17 @@ describe('RecomendacaoService', () => {
       expect(resultado).toBeNull();
     });
   });
+
   describe('verificarRecomendacaoRegularizacaoDebitosFiscais', () => {
     const NOME_SERVICO = 'Regularização de Débitos Fiscais';
-
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
+    const ID_SERVICO = SERVICO_ID.REGULARIZACAO_DEBITOS_FISCAIS;
 
     const mockEmpresaEObrigacoes = () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
         { idObrigacao: 100 },
       ] as any);
@@ -255,12 +270,13 @@ describe('RecomendacaoService', () => {
 
     it('deve recomendar quando houver obrigação pendente vinculada ao serviço', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
         status: StatusObrigacao.PENDENTE,
         obrigacaoServico: {
           servico: {
-            id: 6,
+            id: ID_SERVICO,
             nome: NOME_SERVICO,
             descricao: 'Regularização de débitos tributários da empresa',
           },
@@ -271,26 +287,29 @@ describe('RecomendacaoService', () => {
         await service.verificarRecomendacaoRegularizacaoDebitosFiscais(1);
 
       expect(resultado).toEqual({
-        id: 6,
+        id: ID_SERVICO,
         nome: NOME_SERVICO,
         descricao: 'Regularização de débitos tributários da empresa',
       });
     });
 
-    it('deve utilizar corretamente os relacionamentos entre empresa, obrigação e serviço', async () => {
+    it('deve utilizar corretamente os relacionamentos entre empresa, obrigação e serviço, pesquisando pelo ID', async () => {
       const findByPk = vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       const findAllOE = vi
         .spyOn(ObrigacaoEmpresa, 'findAll')
         .mockResolvedValue([{ idObrigacao: 100 }, { idObrigacao: 101 }] as any);
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       await service.verificarRecomendacaoRegularizacaoDebitosFiscais(1);
 
       expect(findByPk).toHaveBeenCalledWith(1, { include: ['empresas'] });
       expect(findAllOE).toHaveBeenCalledWith({ where: { idEmpresa: 10 } });
+
       expect(findOne).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: [100, 101], status: StatusObrigacao.PENDENTE },
@@ -301,7 +320,7 @@ describe('RecomendacaoService', () => {
               include: [
                 expect.objectContaining({
                   as: 'servico',
-                  where: { nome: NOME_SERVICO },
+                  where: { id: ID_SERVICO },
                   required: true,
                 }),
               ],
@@ -313,11 +332,12 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar os dados somente no formato id, nome e descricao', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
         obrigacaoServico: {
           servico: {
-            id: 6,
+            id: ID_SERVICO,
             nome: NOME_SERVICO,
             descricao: 'Desc',
             valorBase: 500,
@@ -344,7 +364,7 @@ describe('RecomendacaoService', () => {
 
     it('não deve recomendar quando a obrigação relacionada não estiver pendente', async () => {
       mockEmpresaEObrigacoes();
-      // O filtro status = pendente é aplicado no banco, que não retorna a obrigação paga
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       const resultado =
@@ -352,9 +372,12 @@ describe('RecomendacaoService', () => {
 
       expect(findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ status: StatusObrigacao.PENDENTE }),
+          where: expect.objectContaining({
+            status: StatusObrigacao.PENDENTE,
+          }),
         }),
       );
+
       expect(resultado).toBeNull();
     });
 
@@ -374,6 +397,7 @@ describe('RecomendacaoService', () => {
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
 
       expect(
@@ -384,16 +408,14 @@ describe('RecomendacaoService', () => {
 
   describe('verificarRecomendacaoParcelamentoDebitosFiscais', () => {
     const NOME_SERVICO = 'Parcelamento de Débitos Fiscais';
-
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
+    const ID_SERVICO = SERVICO_ID.PARCELAMENTO_DEBITOS_FISCAIS;
 
     const mockEmpresaEObrigacoes = () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
         { idObrigacao: 100 },
       ] as any);
@@ -401,6 +423,7 @@ describe('RecomendacaoService', () => {
 
     it('deve recomendar quando houver obrigação pendente do serviço sem pagamento parcelado', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
         {
           id: 100,
@@ -408,7 +431,7 @@ describe('RecomendacaoService', () => {
           pagamento: null,
           obrigacaoServico: {
             servico: {
-              id: 7,
+              id: ID_SERVICO,
               nome: NOME_SERVICO,
               descricao: 'Negociação/parcelamento de débitos existentes',
             },
@@ -420,7 +443,7 @@ describe('RecomendacaoService', () => {
         await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
 
       expect(resultado).toEqual({
-        id: 7,
+        id: ID_SERVICO,
         nome: NOME_SERVICO,
         descricao: 'Negociação/parcelamento de débitos existentes',
       });
@@ -428,13 +451,14 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar os dados somente no formato id, nome e descricao', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
         {
           id: 100,
           pagamento: null,
           obrigacaoServico: {
             servico: {
-              id: 7,
+              id: ID_SERVICO,
               nome: NOME_SERVICO,
               descricao: 'Desc',
               valorBase: 500,
@@ -450,8 +474,9 @@ describe('RecomendacaoService', () => {
       expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
     });
 
-    it('deve consultar obrigações pendentes, o serviço correto e pagamento parcelado', async () => {
+    it('deve consultar obrigações pendentes, o ID correto do serviço e pagamento parcelado', async () => {
       mockEmpresaEObrigacoes();
+
       const findAll = vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([]);
 
       await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
@@ -466,7 +491,7 @@ describe('RecomendacaoService', () => {
               include: [
                 expect.objectContaining({
                   as: 'servico',
-                  where: { nome: NOME_SERVICO },
+                  where: { id: ID_SERVICO },
                   required: true,
                 }),
               ],
@@ -483,6 +508,7 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar null quando não existir obrigação que atenda à condição', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([]);
 
       const resultado =
@@ -493,7 +519,7 @@ describe('RecomendacaoService', () => {
 
     it('não deve recomendar quando a obrigação não estiver pendente', async () => {
       mockEmpresaEObrigacoes();
-      // O filtro status = pendente é aplicado no banco, que não retorna a obrigação paga
+
       const findAll = vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([]);
 
       const resultado =
@@ -501,21 +527,29 @@ describe('RecomendacaoService', () => {
 
       expect(findAll).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ status: StatusObrigacao.PENDENTE }),
+          where: expect.objectContaining({
+            status: StatusObrigacao.PENDENTE,
+          }),
         }),
       );
+
       expect(resultado).toBeNull();
     });
 
     it('não deve recomendar quando existir pagamento parcelado para a obrigação', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
         {
           id: 100,
           status: StatusObrigacao.PENDENTE,
           pagamento: { id: 1, tipoPagamento: TipoPagamento.PARCELADO },
           obrigacaoServico: {
-            servico: { id: 7, nome: NOME_SERVICO, descricao: 'Desc' },
+            servico: {
+              id: ID_SERVICO,
+              nome: NOME_SERVICO,
+              descricao: 'Desc',
+            },
           },
         },
       ] as any);
@@ -528,21 +562,31 @@ describe('RecomendacaoService', () => {
 
     it('deve recomendar se outra obrigação não tiver pagamento parcelado', async () => {
       mockEmpresaEObrigacoes();
-      const servico = { id: 7, nome: NOME_SERVICO, descricao: 'Desc' };
+
+      const servico = {
+        id: ID_SERVICO,
+        nome: NOME_SERVICO,
+        descricao: 'Desc',
+      };
+
       vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
         {
           id: 100,
           pagamento: { id: 1, tipoPagamento: TipoPagamento.PARCELADO },
           obrigacaoServico: { servico },
         },
-        { id: 101, pagamento: null, obrigacaoServico: { servico } },
+        {
+          id: 101,
+          pagamento: null,
+          obrigacaoServico: { servico },
+        },
       ] as any);
 
       const resultado =
         await service.verificarRecomendacaoParcelamentoDebitosFiscais(1);
 
       expect(resultado).toEqual({
-        id: 7,
+        id: ID_SERVICO,
         nome: NOME_SERVICO,
         descricao: 'Desc',
       });
@@ -564,6 +608,7 @@ describe('RecomendacaoService', () => {
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
 
       expect(
@@ -574,16 +619,14 @@ describe('RecomendacaoService', () => {
 
   describe('verificarRecomendacaoRecursoMultaInfracaoFiscal', () => {
     const NOME_SERVICO = 'Recurso de Multa/Infração Fiscal';
-
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
+    const ID_SERVICO = SERVICO_ID.RECURSO_MULTA_INFRACAO_FISCAL;
 
     const mockEmpresaEObrigacoes = () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
         { idObrigacao: 100 },
       ] as any);
@@ -591,12 +634,13 @@ describe('RecomendacaoService', () => {
 
     it('deve recomendar quando houver obrigação pendente vinculada ao serviço', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
         status: StatusObrigacao.PENDENTE,
         obrigacaoServico: {
           servico: {
-            id: 8,
+            id: ID_SERVICO,
             nome: NOME_SERVICO,
             descricao: 'Contestação de multas ou infrações fiscais',
           },
@@ -607,7 +651,7 @@ describe('RecomendacaoService', () => {
         await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
 
       expect(resultado).toEqual({
-        id: 8,
+        id: ID_SERVICO,
         nome: NOME_SERVICO,
         descricao: 'Contestação de multas ou infrações fiscais',
       });
@@ -615,11 +659,12 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar os dados somente no formato id, nome e descricao', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
         obrigacaoServico: {
           servico: {
-            id: 8,
+            id: ID_SERVICO,
             nome: NOME_SERVICO,
             descricao: 'Desc',
             valorBase: 500,
@@ -634,8 +679,9 @@ describe('RecomendacaoService', () => {
       expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
     });
 
-    it('deve consultar obrigações pendentes relacionadas ao serviço correto via OBRIGACAO_SERVICO', async () => {
+    it('deve consultar obrigações pendentes relacionadas ao ID correto do serviço via OBRIGACAO_SERVICO', async () => {
       mockEmpresaEObrigacoes();
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       await service.verificarRecomendacaoRecursoMultaInfracaoFiscal(1);
@@ -650,7 +696,7 @@ describe('RecomendacaoService', () => {
               include: [
                 expect.objectContaining({
                   as: 'servico',
-                  where: { nome: NOME_SERVICO },
+                  where: { id: ID_SERVICO },
                   required: true,
                 }),
               ],
@@ -662,6 +708,7 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar null quando não existir obrigação que atenda à condição', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       const resultado =
@@ -672,7 +719,7 @@ describe('RecomendacaoService', () => {
 
     it('não deve recomendar quando a obrigação não estiver pendente', async () => {
       mockEmpresaEObrigacoes();
-      // O filtro status = pendente é aplicado no banco, que não retorna a obrigação paga
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       const resultado =
@@ -680,15 +727,18 @@ describe('RecomendacaoService', () => {
 
       expect(findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ status: StatusObrigacao.PENDENTE }),
+          where: expect.objectContaining({
+            status: StatusObrigacao.PENDENTE,
+          }),
         }),
       );
+
       expect(resultado).toBeNull();
     });
 
-    it('não deve recomendar quando a obrigação não estiver relacionada ao serviço', async () => {
+    it('não deve recomendar quando a obrigação não estiver relacionada ao ID do serviço', async () => {
       mockEmpresaEObrigacoes();
-      // O filtro por nome do serviço é aplicado no banco (include com required: true)
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       const resultado =
@@ -703,7 +753,7 @@ describe('RecomendacaoService', () => {
               include: [
                 expect.objectContaining({
                   as: 'servico',
-                  where: { nome: NOME_SERVICO },
+                  where: { id: ID_SERVICO },
                   required: true,
                 }),
               ],
@@ -711,6 +761,7 @@ describe('RecomendacaoService', () => {
           ],
         }),
       );
+
       expect(resultado).toBeNull();
     });
 
@@ -730,6 +781,7 @@ describe('RecomendacaoService', () => {
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
 
       expect(
@@ -737,18 +789,17 @@ describe('RecomendacaoService', () => {
       ).toBeNull();
     });
   });
-    describe('verificarRecomendacaoEntregaObrigacoesAcessorias', () => {
-    const NOME_SERVICO = 'Entrega de Obrigações Acessórias';
 
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
+  describe('verificarRecomendacaoEntregaObrigacoesAcessorias', () => {
+    const NOME_SERVICO = 'Entrega de Obrigações Acessórias';
+    const ID_SERVICO = SERVICO_ID.ENTREGA_OBRIGACOES_ACESSORIAS;
 
     const mockEmpresaEObrigacoes = () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([
         { idObrigacao: 100 },
       ] as any);
@@ -756,12 +807,13 @@ describe('RecomendacaoService', () => {
 
     it('deve recomendar quando houver obrigação pendente vinculada ao serviço', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
         status: StatusObrigacao.PENDENTE,
         obrigacaoServico: {
           servico: {
-            id: 9,
+            id: ID_SERVICO,
             nome: NOME_SERVICO,
             descricao: 'Apoio na elaboração e entrega de obrigações',
           },
@@ -772,7 +824,7 @@ describe('RecomendacaoService', () => {
         await service.verificarRecomendacaoEntregaObrigacoesAcessorias(1);
 
       expect(resultado).toEqual({
-        id: 9,
+        id: ID_SERVICO,
         nome: NOME_SERVICO,
         descricao: 'Apoio na elaboração e entrega de obrigações',
       });
@@ -780,11 +832,12 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar os dados somente no formato id, nome e descricao', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue({
         id: 100,
         obrigacaoServico: {
           servico: {
-            id: 9,
+            id: ID_SERVICO,
             nome: NOME_SERVICO,
             descricao: 'Desc',
             valorBase: 500,
@@ -799,8 +852,9 @@ describe('RecomendacaoService', () => {
       expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
     });
 
-    it('deve consultar obrigações pendentes relacionadas ao serviço correto via OBRIGACAO_SERVICO', async () => {
+    it('deve consultar obrigações pendentes relacionadas ao ID correto do serviço via OBRIGACAO_SERVICO', async () => {
       mockEmpresaEObrigacoes();
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       await service.verificarRecomendacaoEntregaObrigacoesAcessorias(1);
@@ -815,7 +869,7 @@ describe('RecomendacaoService', () => {
               include: [
                 expect.objectContaining({
                   as: 'servico',
-                  where: { nome: NOME_SERVICO },
+                  where: { id: ID_SERVICO },
                   required: true,
                 }),
               ],
@@ -827,6 +881,7 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar null quando não existir obrigação que atenda à condição', async () => {
       mockEmpresaEObrigacoes();
+
       vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       const resultado =
@@ -837,7 +892,7 @@ describe('RecomendacaoService', () => {
 
     it('não deve recomendar quando a obrigação não estiver pendente', async () => {
       mockEmpresaEObrigacoes();
-      // O filtro status = pendente é aplicado no banco, que não retorna a obrigação paga
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       const resultado =
@@ -845,15 +900,18 @@ describe('RecomendacaoService', () => {
 
       expect(findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ status: StatusObrigacao.PENDENTE }),
+          where: expect.objectContaining({
+            status: StatusObrigacao.PENDENTE,
+          }),
         }),
       );
+
       expect(resultado).toBeNull();
     });
 
-    it('não deve recomendar quando a obrigação não estiver relacionada ao serviço', async () => {
+    it('não deve recomendar quando a obrigação não estiver relacionada ao ID do serviço', async () => {
       mockEmpresaEObrigacoes();
-      // O filtro por nome do serviço é aplicado no banco (include com required: true)
+
       const findOne = vi.spyOn(Obrigacao, 'findOne').mockResolvedValue(null);
 
       const resultado =
@@ -868,7 +926,7 @@ describe('RecomendacaoService', () => {
               include: [
                 expect.objectContaining({
                   as: 'servico',
-                  where: { nome: NOME_SERVICO },
+                  where: { id: ID_SERVICO },
                   required: true,
                 }),
               ],
@@ -876,6 +934,7 @@ describe('RecomendacaoService', () => {
           ],
         }),
       );
+
       expect(resultado).toBeNull();
     });
 
@@ -895,6 +954,7 @@ describe('RecomendacaoService', () => {
         id: 1,
         empresas: [{ id: 10 }],
       } as any);
+
       vi.spyOn(ObrigacaoEmpresa, 'findAll').mockResolvedValue([]);
 
       expect(
@@ -902,6 +962,7 @@ describe('RecomendacaoService', () => {
       ).toBeNull();
     });
   });
+
   describe('recomendarRevisaoRegime', () => {
     it('deve retornar null se o usuário não tiver empresa associada', async () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
@@ -947,8 +1008,8 @@ describe('RecomendacaoService', () => {
       ] as any);
 
       vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
-        { id: 10, competencia: '2026-08-01', status: 'pendente' },
-        { id: 20, competencia: '2026-08-01', status: 'pendente' }, // mesma competência
+        { id: 10, competencia: '2026-08-01', status: StatusObrigacao.PENDENTE },
+        { id: 20, competencia: '2026-08-01', status: StatusObrigacao.PENDENTE },
       ] as any);
 
       const resultado = await service.recomendarRevisaoRegime(2);
@@ -969,15 +1030,15 @@ describe('RecomendacaoService', () => {
       ] as any);
 
       vi.spyOn(Obrigacao, 'findAll').mockResolvedValue([
-        { id: 10, competencia: '2026-06-01', status: 'pendente' },
-        { id: 20, competencia: '2026-07-01', status: 'pendente' },
-        { id: 30, competencia: '2026-08-01', status: 'pendente' },
+        { id: 10, competencia: '2026-06-01', status: StatusObrigacao.PENDENTE },
+        { id: 20, competencia: '2026-07-01', status: StatusObrigacao.PENDENTE },
+        { id: 30, competencia: '2026-08-01', status: StatusObrigacao.PENDENTE },
       ] as any);
 
       const resultado = await service.recomendarRevisaoRegime(2);
 
       expect(resultado).toEqual({
-        id: 1,
+        id: SERVICO_ID.REVISAO_REGIME_TRIBUTARIO,
         nome: 'Revisão do Regime Tributário',
         descricao: 'Análise do regime tributário atual',
       });
@@ -1023,9 +1084,7 @@ describe('RecomendacaoService', () => {
         empresas: [{ id: 10 }],
       } as any);
 
-      solicitacaoModelMock.findAll.mockResolvedValue([
-        { servicoId: 1 },
-      ]);
+      solicitacaoModelMock.findAll.mockResolvedValue([{ servicoId: 1 }]);
 
       const resultado = await service.recomendarPlanejamentoTributario(1);
 
@@ -1056,7 +1115,7 @@ describe('RecomendacaoService', () => {
 
       solicitacaoModelMock.findAll.mockResolvedValue([
         { servicoId: 1 },
-        { servicoId: 7 },
+        { servicoId: SERVICO_ID.PLANEJAMENTO_TRIBUTARIO },
       ]);
 
       const resultado = await service.recomendarPlanejamentoTributario(1);
@@ -1087,17 +1146,18 @@ describe('RecomendacaoService', () => {
       } as any);
 
       solicitacaoModelMock.findAll.mockResolvedValue([
-        { servicoId: 1 },
-        { servicoId: 6 },
+        { servicoId: SERVICO_ID.REGULARIZACAO_DEBITOS_FISCAIS },
+        { servicoId: SERVICO_ID.REVISAO_REGIME_TRIBUTARIO },
       ]);
 
       const resultado = await service.recomendarPlanejamentoTributario(1);
 
       expect(resultado).toEqual({
-        id: 7,
+        id: SERVICO_ID.PLANEJAMENTO_TRIBUTARIO,
         nome: 'Planejamento Tributário',
         descricao: 'Análise para otimização da carga tributária',
       });
+
       expect(Object.keys(resultado!)).toEqual(['id', 'nome', 'descricao']);
     });
   });
@@ -1107,6 +1167,7 @@ describe('RecomendacaoService', () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue(null as any);
 
       const resultado = await service.regularizacaoCadastral(999);
+
       expect(resultado).toBeNull();
     });
 
@@ -1119,8 +1180,9 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toEqual({
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       });
@@ -1135,8 +1197,9 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toEqual({
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       });
@@ -1159,8 +1222,9 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toEqual({
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       });
@@ -1183,8 +1247,9 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toEqual({
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       });
@@ -1207,8 +1272,9 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toEqual({
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       });
@@ -1231,8 +1297,9 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toEqual({
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       });
@@ -1255,6 +1322,7 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toBeNull();
     });
 
@@ -1267,15 +1335,12 @@ describe('RecomendacaoService', () => {
       } as any);
 
       const resultado = await service.regularizacaoCadastral(1);
+
       expect(resultado).toBeNull();
     });
   });
 
   describe('consultoriaContabil', () => {
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
-
     it('deve recomendar Consultoria Contábil quando existirem solicitações de pelo menos 3 serviços diferentes', async () => {
       vi.spyOn(Usuario, 'findByPk').mockResolvedValue({
         id: 1,
@@ -1291,7 +1356,7 @@ describe('RecomendacaoService', () => {
       const resultado = await service.consultoriaContabil(1);
 
       expect(resultado).toEqual({
-        id: 9,
+        id: SERVICO_ID.CONSULTORIA_CONTABIL,
         nome: 'Consultoria Contábil',
         descricao: 'Atendimento para análise de questões contábeis',
       });
@@ -1346,7 +1411,7 @@ describe('RecomendacaoService', () => {
       const resultado = await service.consultoriaContabil(1);
 
       expect(resultado).toEqual({
-        id: 9,
+        id: SERVICO_ID.CONSULTORIA_CONTABIL,
         nome: 'Consultoria Contábil',
         descricao: 'Atendimento para análise de questões contábeis',
       });
@@ -1361,7 +1426,7 @@ describe('RecomendacaoService', () => {
       solicitacaoModelMock.findAll.mockResolvedValue([
         { servicoId: 1 },
         { servicoId: 2 },
-        { servicoId: 9 },
+        { servicoId: SERVICO_ID.CONSULTORIA_CONTABIL },
       ]);
 
       const resultado = await service.consultoriaContabil(1);
@@ -1379,7 +1444,7 @@ describe('RecomendacaoService', () => {
         { servicoId: 1 },
         { servicoId: 2 },
         { servicoId: 6 },
-        { servicoId: 9 },
+        { servicoId: SERVICO_ID.CONSULTORIA_CONTABIL },
       ]);
 
       const resultado = await service.consultoriaContabil(1);
@@ -1396,7 +1461,7 @@ describe('RecomendacaoService', () => {
       solicitacaoModelMock.findAll.mockResolvedValue([
         { servicoId: 3 },
         { servicoId: 4 },
-        { servicoId: 9 },
+        { servicoId: SERVICO_ID.CONSULTORIA_CONTABIL },
       ]);
 
       const resultado = await service.consultoriaContabil(1);
@@ -1436,7 +1501,7 @@ describe('RecomendacaoService', () => {
       const resultado = await service.consultoriaContabil(1);
 
       expect(resultado).not.toBeNull();
-      expect(resultado?.id).toBe(9);
+      expect(resultado?.id).toBe(SERVICO_ID.CONSULTORIA_CONTABIL);
     });
 
     it('deve retornar null quando não houver empresa vinculada ao usuário', async () => {
@@ -1482,26 +1547,22 @@ describe('RecomendacaoService', () => {
           empresaId: 10,
         },
       });
+
       expect(resultado).not.toBeNull();
-      expect(resultado?.id).toBe(9);
+      expect(resultado?.id).toBe(SERVICO_ID.CONSULTORIA_CONTABIL);
     });
   });
 
-  
   describe('obterRecomendacao', () => {
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
-
     it('deve retornar todas as recomendações encontradas', async () => {
       const recomendacao1 = {
-        id: 8,
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
         nome: 'Regularização Cadastral',
         descricao: 'Correção/regularização de dados cadastrais',
       };
 
       const recomendacao2 = {
-        id: 9,
+        id: SERVICO_ID.CONSULTORIA_CONTABIL,
         nome: 'Consultoria Contábil',
         descricao: 'Atendimento para análise de questões contábeis',
       };
@@ -1510,32 +1571,41 @@ describe('RecomendacaoService', () => {
         service,
         'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRegularizacaoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoParcelamentoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRecursoMultaInfracaoFiscal',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoEntregaObrigacoesAcessorias',
       ).mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
         null,
       );
+
       vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(
         recomendacao1,
       );
+
       vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(
         recomendacao2,
       );
+
       vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue([]);
 
       const resultado = await service.obterRecomendacao(1);
@@ -1546,7 +1616,7 @@ describe('RecomendacaoService', () => {
 
     it('deve retornar uma recomendação quando somente uma for encontrada', async () => {
       const recomendacao = {
-        id: 9,
+        id: SERVICO_ID.CONSULTORIA_CONTABIL,
         nome: 'Consultoria Contábil',
         descricao: 'Atendimento para análise de questões contábeis',
       };
@@ -1555,28 +1625,37 @@ describe('RecomendacaoService', () => {
         service,
         'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRegularizacaoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoParcelamentoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRecursoMultaInfracaoFiscal',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoEntregaObrigacoesAcessorias',
       ).mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
         null,
       );
+
       vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(null);
+
       vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(recomendacao);
+
       vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue([]);
 
       const resultado = await service.obterRecomendacao(1);
@@ -1598,28 +1677,37 @@ describe('RecomendacaoService', () => {
         service,
         'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRegularizacaoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoParcelamentoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRecursoMultaInfracaoFiscal',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoEntregaObrigacoesAcessorias',
       ).mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
         null,
       );
+
       vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(null);
+
       vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(null);
+
       vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue(populares);
 
       const resultado = await service.obterRecomendacao(1);
@@ -1633,28 +1721,37 @@ describe('RecomendacaoService', () => {
         service,
         'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRegularizacaoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoParcelamentoDebitosFiscais',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoRecursoMultaInfracaoFiscal',
       ).mockResolvedValue(null);
+
       vi.spyOn(
         service,
         'verificarRecomendacaoEntregaObrigacoesAcessorias',
       ).mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+
       vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
         null,
       );
+
       vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(null);
+
       vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(null);
+
       vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue([]);
 
       const resultado = await service.obterRecomendacao(1);
@@ -1662,5 +1759,4 @@ describe('RecomendacaoService', () => {
       expect(resultado).toEqual([]);
     });
   });
-
 });
