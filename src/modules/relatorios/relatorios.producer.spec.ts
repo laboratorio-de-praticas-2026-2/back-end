@@ -11,13 +11,11 @@ describe('RelatoriosProducer', () => {
 
     const producer = new RelatoriosProducer(queue as any);
 
-    const relatorioId = 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f';
-
-    await producer.adicionarGeracao(relatorioId);
+    await producer.adicionarGeracao(10);
 
     expect(add).toHaveBeenCalledTimes(1);
     expect(add).toHaveBeenCalledWith('gerar-relatorio', {
-      relatorioId,
+      relatorioId: 10,
     });
   });
 });

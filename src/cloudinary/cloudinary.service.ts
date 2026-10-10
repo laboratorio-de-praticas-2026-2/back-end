@@ -44,20 +44,6 @@ export class CloudinaryService {
     });
   }
 
-  async downloadPdf(url: string): Promise<Buffer> {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(
-        `Falha ao obter PDF do Cloudinary: ${response.status}`,
-      );
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-
-    return Buffer.from(arrayBuffer);
-  }
-
   async deletePdf(publicId: string): Promise<void> {
     return new Promise((resolve, reject) => {
       cloudinary.uploader.destroy(
