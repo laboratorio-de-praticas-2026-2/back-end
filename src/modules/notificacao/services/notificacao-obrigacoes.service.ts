@@ -65,34 +65,40 @@ export class NotificacaoObrigacoesService {
   }
 
   private async buscarObrigacoesPendentes(): Promise<ObrigacaoComRelacoes[]> {
-    const resultado = await this.obrigacaoModel.findAll({
+    // 1. Busca as obrigações pendentes sem include
+    const obrigacoes = await this.obrigacaoModel.findAll({
       where: {
         status: StatusObrigacao.PENDENTE,
         deletedAt: null,
       },
-      include: [
-        {
-          model: ObrigacaoServico,
-          include: [
-            {
-              model: Solicitacao,
-              attributes: ['usuarioId'],
-            },
-          ],
-        },
-        {
-          model: ObrigacaoEmpresa,
-          include: [
-            {
-              model: Empresa,
-              attributes: ['usuarioId'],
-            },
-          ],
-        },
-      ],
     });
 
-    return resultado as ObrigacaoComRelacoes[];
+    if (obrigacoes.length === 0) return [];
+
+    const idsObrigacoes = obrigacoes.map((o) => o.id);
+
+    // 2. Busca os vínculos em paralelo
+    const [obrigacoesServicos, obrigacoesEmpresas] = await Promise.all([
+      ObrigacaoServico.findAll({
+        where: { idObrigacao: idsObrigacoes },
+        include: [{ model: Solicitacao, attributes: ['usuarioId'] }],
+      }),
+      ObrigacaoEmpresa.findAll({
+        where: { idObrigacao: idsObrigacoes },
+        include: [{ model: Empresa, attributes: ['usuarioId'] }],
+      }),
+    ]);
+
+    // 3. Mapeia em memória evitando o conflito com NonAttributeBrand
+    const mapaServico = new Map(obrigacoesServicos.map((os) => [os.idObrigacao, os]));
+    const mapaEmpresa = new Map(obrigacoesEmpresas.map((oe) => [oe.idObrigacao, oe]));
+
+    return obrigacoes.map((obrigacao) => {
+      const item = obrigacao as unknown as ObrigacaoComRelacoes;
+      item.obrigacaoServico = (mapaServico.get(obrigacao.id) ?? undefined) as any;
+      item.obrigacaoEmpresa = (mapaEmpresa.get(obrigacao.id) ?? undefined) as any;
+      return item;
+    });
   }
 
   private agruparPorUsuario(
