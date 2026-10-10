@@ -1486,4 +1486,181 @@ describe('RecomendacaoService', () => {
       expect(resultado?.id).toBe(9);
     });
   });
+
+  
+  describe('obterRecomendacao', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('deve retornar todas as recomendações encontradas', async () => {
+      const recomendacao1 = {
+        id: 8,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      };
+
+      const recomendacao2 = {
+        id: 9,
+        nome: 'Consultoria Contábil',
+        descricao: 'Atendimento para análise de questões contábeis',
+      };
+
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoParcelamentoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRecursoMultaInfracaoFiscal',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoEntregaObrigacoesAcessorias',
+      ).mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
+        null,
+      );
+      vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(
+        recomendacao1,
+      );
+      vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(
+        recomendacao2,
+      );
+      vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue([]);
+
+      const resultado = await service.obterRecomendacao(1);
+
+      expect(resultado).toEqual([recomendacao1, recomendacao2]);
+      expect(service.buscarServicosPopulares).not.toHaveBeenCalled();
+    });
+
+    it('deve retornar uma recomendação quando somente uma for encontrada', async () => {
+      const recomendacao = {
+        id: 9,
+        nome: 'Consultoria Contábil',
+        descricao: 'Atendimento para análise de questões contábeis',
+      };
+
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoParcelamentoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRecursoMultaInfracaoFiscal',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoEntregaObrigacoesAcessorias',
+      ).mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
+        null,
+      );
+      vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(null);
+      vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(recomendacao);
+      vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue([]);
+
+      const resultado = await service.obterRecomendacao(1);
+
+      expect(resultado).toEqual([recomendacao]);
+      expect(service.buscarServicosPopulares).not.toHaveBeenCalled();
+    });
+
+    it('deve retornar os serviços populares quando nenhuma recomendação for encontrada', async () => {
+      const populares = [
+        {
+          id: 2,
+          nome: 'Serviço Popular',
+          descricao: 'Serviço mais solicitado',
+        },
+      ];
+
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoParcelamentoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRecursoMultaInfracaoFiscal',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoEntregaObrigacoesAcessorias',
+      ).mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
+        null,
+      );
+      vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(null);
+      vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(null);
+      vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue(populares);
+
+      const resultado = await service.obterRecomendacao(1);
+
+      expect(resultado).toEqual(populares);
+      expect(service.buscarServicosPopulares).toHaveBeenCalledOnce();
+    });
+
+    it('deve retornar array vazio quando não houver recomendações nem serviços populares', async () => {
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoObrigacoesFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRegularizacaoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoParcelamentoDebitosFiscais',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoRecursoMultaInfracaoFiscal',
+      ).mockResolvedValue(null);
+      vi.spyOn(
+        service,
+        'verificarRecomendacaoEntregaObrigacoesAcessorias',
+      ).mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarRevisaoRegime').mockResolvedValue(null);
+      vi.spyOn(service, 'recomendarPlanejamentoTributario').mockResolvedValue(
+        null,
+      );
+      vi.spyOn(service, 'regularizacaoCadastral').mockResolvedValue(null);
+      vi.spyOn(service, 'consultoriaContabil').mockResolvedValue(null);
+      vi.spyOn(service, 'buscarServicosPopulares').mockResolvedValue([]);
+
+      const resultado = await service.obterRecomendacao(1);
+
+      expect(resultado).toEqual([]);
+    });
+  });
+
 });
