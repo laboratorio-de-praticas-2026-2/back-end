@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { RelatoriosWorker } from './relatorios.worker.js';
 
 describe('RelatoriosWorker - integração', () => {
@@ -12,44 +14,60 @@ describe('RelatoriosWorker - integração', () => {
 
     const relatorioUpdate = vi.fn().mockResolvedValue({});
 
+    const reportModel = {
+      findByPk: vi.fn().mockResolvedValue({
+        id: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
+        nome: 'Relatório de teste',
+        categoria: 'Financeiro',
+        descricao: 'Relatório para teste de integração',
+        dataInicio: new Date('2026-09-01'),
+        dataTermino: new Date('2026-09-30'),
+        status: 'PENDENTE',
+        arquivoUrl: null,
+        update: relatorioUpdate,
+      }),
+    };
+
     const relatoriosPdfService = {
       gerarPdf,
+    };
+
+    const relatorioTemplateService = {
+      render: vi.fn().mockReturnValue('<html>relatório</html>'),
     };
 
     const cloudinaryService = {
       uploadPdf,
     };
 
-    const prisma = {
-      relatorio: {
-        update: relatorioUpdate,
-      },
-    };
-
     const worker = new RelatoriosWorker(
       relatoriosPdfService as any,
+      relatorioTemplateService as any,
       cloudinaryService as any,
-      prisma as any,
+      reportModel as any,
     );
 
     const job = {
       name: 'gerar-relatorio',
       data: {
-        relatorioId: 10,
+        relatorioId: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
       },
     } as any;
 
     await worker.process(job);
 
+    expect(reportModel.findByPk).toHaveBeenCalledWith(
+      'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
+    );
+
     expect(relatorioUpdate).toHaveBeenCalledWith({
-      where: { id: 10 },
-      data: { status: 'pendente' },
+      status: 'PENDENTE',
     });
 
-    expect(gerarPdf).toHaveBeenCalledTimes(1);
+    expect(relatorioTemplateService.render).toHaveBeenCalled();
 
     expect(gerarPdf).toHaveBeenCalledWith(
-      expect.stringContaining('ID do relatório: 10'),
+      '<html>relatório</html>',
     );
 
     expect(uploadPdf).toHaveBeenCalledTimes(1);
@@ -59,13 +77,9 @@ describe('RelatoriosWorker - integração', () => {
     );
 
     expect(relatorioUpdate).toHaveBeenLastCalledWith({
-      where: { id: 10 },
-      data: {
-        status: 'gerado',
-        urlDocumentoHash:
-          'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf',
-        dataGeracao: expect.any(Date),
-      },
+      status: 'GERADO',
+      arquivoUrl:
+        'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf',
     });
   });
 });

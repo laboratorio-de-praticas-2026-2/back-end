@@ -9,7 +9,7 @@ export class RelatoriosProducer {
     private readonly relatoriosQueue: Queue,
   ) {}
 
-  async adicionarGeracao(relatorioId: number) {
+  async adicionarGeracao(relatorioId: string) {
     await this.relatoriosQueue.add('gerar-relatorio', {
       relatorioId,
     });
