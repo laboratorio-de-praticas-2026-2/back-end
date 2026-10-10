@@ -636,11 +636,40 @@ export class RecomendacaoService {
       return {
         id: 9,
         nome: 'Consultoria Contábil',
-        descricao: 'Atendimento para ánalise de questões contábeis',
+        descricao: 'Atendimento para análise de questões contábeis',
       };
     }
 
     return null;
   }
+
+  
+  async obterRecomendacao(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto[]> {
+    const resultados = await Promise.all([
+      this.verificarRecomendacaoRegularizacaoObrigacoesFiscais(usuarioId),
+      this.verificarRecomendacaoRegularizacaoDebitosFiscais(usuarioId),
+      this.verificarRecomendacaoParcelamentoDebitosFiscais(usuarioId),
+      this.verificarRecomendacaoRecursoMultaInfracaoFiscal(usuarioId),
+      this.verificarRecomendacaoEntregaObrigacoesAcessorias(usuarioId),
+      this.recomendarRevisaoRegime(usuarioId),
+      this.recomendarPlanejamentoTributario(usuarioId),
+      this.regularizacaoCadastral(usuarioId),
+      this.consultoriaContabil(usuarioId),
+    ]);
+
+    const recomendacoes = resultados.filter(
+      (recomendacao): recomendacao is RecomendacaoRespostaDto =>
+        recomendacao !== null,
+    );
+
+    if (recomendacoes.length > 0) {
+      return recomendacoes;
+    }
+
+    return this.buscarServicosPopulares();
+  }
+
 }
 
