@@ -22,6 +22,8 @@ import { BlogModule } from './modules/blog/blog.module.js';
 import { FaqModule } from './modules/faq/faq.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+import { NotificacaoModule } from './modules/notificacao/notificacao.module.js';
+
 import { AgendamentoModule } from './modules/agendamento/agendamento.module.js';
 import { AgendamentoModel } from './models/agendamento.model.js';
 import { TipoAtendimentoModel } from './models/tipo-atendimento.model.js';
@@ -37,7 +39,6 @@ import { Parcela } from './models/parcela.model.js';
 import { Solicitacao } from './models/solicitacao.model.js';
 import { DocumentoSolicitacao } from './models/documento-solicitacao.model.js';
 import { Servico } from './models/servico.model.js';
-
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -131,6 +132,7 @@ PrismaModule,
     FaqModule,
     ChatModule,
     DashboardModule,
+    NotificacaoModule,
     AgendamentoModule,
     ClienteModule,
     AdministracaoModule,

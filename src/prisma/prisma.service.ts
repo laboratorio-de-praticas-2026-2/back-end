@@ -9,7 +9,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
     const connectionString = process.env.DB_HOST;
 
     if (!connectionString) {
-      throw new Error('DATABASE_URL não definida.');
+      throw new Error('DB_HOST não definida.');
     }
 
     const adapter = new PrismaMariaDb(connectionString);
