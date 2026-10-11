@@ -1,4 +1,672 @@
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/sequelize';
+import { RecomendacaoRespostaDto } from './dto/recomendacao-resposta.dto.js';
+import { Solicitacao } from '../../models/solicitacao.model.js';
+import { Usuario } from '../../models/usuario.model.js';
+import { ObrigacaoEmpresa } from '../../models/obrigacao-empresa.model.js';
+import { Obrigacao, StatusObrigacao } from '../../models/obrigacao.model.js';
+import { ObrigacaoServico } from '../../models/obrigacao-servico.model.js';
+import { Servico } from '../../models/servico.model.js';
+import { Pagamento, TipoPagamento } from '../../models/pagamento.model.js';
+
+const SERVICO_ID = {
+  REGULARIZACAO_DEBITOS_FISCAIS: 1,
+  PARCELAMENTO_DEBITOS_FISCAIS: 2,
+  RECURSO_MULTA_INFRACAO_FISCAL: 3,
+  ENTREGA_OBRIGACOES_ACESSORIAS: 4,
+  REGULARIZACAO_OBRIGACOES_FISCAIS: 5,
+  REVISAO_REGIME_TRIBUTARIO: 6,
+  PLANEJAMENTO_TRIBUTARIO: 7,
+  REGULARIZACAO_CADASTRAL: 8,
+  CONSULTORIA_CONTABIL: 9,
+} as const;
+
+export interface AtributoPerfil {
+  nome: string;
+  descricao: string | null;
+  valorBase: number | null;
+  status: 'ativo' | 'inativo';
+}
 
 @Injectable()
-export class RecomendacaoService {}
+export class RecomendacaoService {
+  constructor(
+    @InjectModel(Solicitacao)
+    private readonly solicitacaoModel: typeof Solicitacao,
+  ) {}
+
+  /**
+   * Retorna os atributos dos serviços já solicitados por um usuário,
+   * usados para montar o perfil de interesse da recomendação.
+   */
+  async buscarAtributosPerfil(
+    usuarioId: number,
+  ): Promise<AtributoPerfil[]> {
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      where: { usuarioId },
+      include: [
+        {
+          association: 'servico',
+          attributes: ['nome', 'descricao', 'valorBase', 'ativo'],
+        },
+      ],
+    });
+
+    return solicitacoes.map(({ servico }) => ({
+      nome: servico.nome,
+      descricao: servico.descricao,
+      valorBase:
+        servico.valorBase != null ? Number(servico.valorBase) : null,
+      status: servico.ativo ? 'ativo' : 'inativo',
+    }));
+  }
+
+  /**
+   * Retorna os serviços ativos mais solicitados, do mais para o menos
+   * solicitado. Usado como base de popularidade e fallback de recomendação.
+   */
+  async buscarServicosPopulares(): Promise<RecomendacaoRespostaDto[]> {
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      include: [
+        {
+          association: 'servico',
+          attributes: ['id', 'nome', 'descricao'],
+          where: { ativo: true },
+          required: true,
+        },
+      ],
+    });
+
+    if (solicitacoes.length === 0) {
+      return [];
+    }
+
+    const contagem = new Map<
+      number,
+      { servico: RecomendacaoRespostaDto; total: number }
+    >();
+
+    for (const { servico } of solicitacoes) {
+      const atual = contagem.get(servico.id);
+
+      if (atual) {
+        atual.total += 1;
+      } else {
+        contagem.set(servico.id, {
+          servico: {
+            id: servico.id,
+            nome: servico.nome,
+            descricao: servico.descricao ?? '',
+          },
+          total: 1,
+        });
+      }
+    }
+
+    return [...contagem.values()]
+      .sort((a, b) => b.total - a.total)
+      .map(({ servico }) => servico);
+  }
+
+  async verificarRecomendacaoRegularizacaoObrigacoesFiscais(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const empresaId = empresa.id;
+
+    const obrigacaoEmpresa = await ObrigacaoEmpresa.findAll({
+      where: {
+        idEmpresa: empresaId,
+      },
+    });
+
+    if (!obrigacaoEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacaoEmpresa.map((oe) => oe.idObrigacao);
+
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: {
+                id: SERVICO_ID.REGULARIZACAO_OBRIGACOES_FISCAIS,
+              },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao,
+    };
+  }
+
+  /**
+   * Recomenda "Regularização de Débitos Fiscais" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoRegularizacaoDebitosFiscais(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: {
+                id: SERVICO_ID.REGULARIZACAO_DEBITOS_FISCAIS,
+              },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
+
+  /**
+   * Recomenda "Parcelamento de Débitos Fiscais" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço e essa obrigação
+   * ainda não possui pagamento com tipo_pagamento = 'parcelado'.
+   */
+  async verificarRecomendacaoParcelamentoDebitosFiscais(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    const obrigacoes = await Obrigacao.findAll({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: {
+                id: SERVICO_ID.PARCELAMENTO_DEBITOS_FISCAIS,
+              },
+              required: true,
+            },
+          ],
+        },
+        {
+          model: Pagamento,
+          as: 'pagamento',
+          where: { tipoPagamento: TipoPagamento.PARCELADO },
+          required: false,
+        },
+      ],
+    });
+
+    const obrigacaoValida = obrigacoes.find(
+      (obrigacao) => !(obrigacao as any).pagamento,
+    );
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
+
+  /**
+   * Recomenda "Recurso de Multa/Infração Fiscal" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoRecursoMultaInfracaoFiscal(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: {
+                id: SERVICO_ID.RECURSO_MULTA_INFRACAO_FISCAL,
+              },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
+
+  /**
+   * Recomenda "Entrega de Obrigações Acessórias" quando a empresa do usuário
+   * possui uma obrigação pendente vinculada ao serviço via OBRIGACAO_SERVICO.
+   */
+  async verificarRecomendacaoEntregaObrigacoesAcessorias(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const obrigacoesEmpresa = await ObrigacaoEmpresa.findAll({
+      where: { idEmpresa: empresa.id },
+    });
+
+    if (!obrigacoesEmpresa.length) {
+      return null;
+    }
+
+    const idsObrigacoes = obrigacoesEmpresa.map((oe) => oe.idObrigacao);
+
+    const obrigacaoValida = await Obrigacao.findOne({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+      include: [
+        {
+          model: ObrigacaoServico,
+          as: 'obrigacaoServico',
+          required: true,
+          include: [
+            {
+              model: Servico,
+              as: 'servico',
+              where: {
+                id: SERVICO_ID.ENTREGA_OBRIGACOES_ACESSORIAS,
+              },
+              required: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!obrigacaoValida) {
+      return null;
+    }
+
+    const servico = (obrigacaoValida as any).obrigacaoServico?.servico;
+
+    if (!servico) {
+      return null;
+    }
+
+    return {
+      id: servico.id,
+      nome: servico.nome,
+      descricao: servico.descricao ?? '',
+    };
+  }
+
+  async recomendarRevisaoRegime(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const vinculos = await ObrigacaoEmpresa.findAll({
+      where: {
+        idEmpresa: empresa.id,
+      },
+    });
+
+    const idsObrigacoes = vinculos.map((item) => item.idObrigacao);
+
+    if (idsObrigacoes.length === 0) {
+      return null;
+    }
+
+    const obrigacoesPendentes = await Obrigacao.findAll({
+      where: {
+        id: idsObrigacoes,
+        status: StatusObrigacao.PENDENTE,
+      },
+    });
+
+    const competenciasDistintas = new Set(
+      obrigacoesPendentes.map((obrigacao) => obrigacao.competencia),
+    );
+
+    if (competenciasDistintas.size >= 3) {
+      return {
+        id: SERVICO_ID.REVISAO_REGIME_TRIBUTARIO,
+        nome: 'Revisão do Regime Tributário',
+        descricao: 'Análise do regime tributário atual',
+      };
+    }
+
+    return null;
+  }
+
+  async recomendarPlanejamentoTributario(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      where: {
+        empresaId: empresa.id,
+      },
+    });
+
+    const servicosTributariosValidos = new Set<number>([
+      SERVICO_ID.REGULARIZACAO_DEBITOS_FISCAIS,
+      SERVICO_ID.PARCELAMENTO_DEBITOS_FISCAIS,
+      SERVICO_ID.RECURSO_MULTA_INFRACAO_FISCAL,
+      SERVICO_ID.ENTREGA_OBRIGACOES_ACESSORIAS,
+      SERVICO_ID.REGULARIZACAO_OBRIGACOES_FISCAIS,
+      SERVICO_ID.REVISAO_REGIME_TRIBUTARIO,
+    ]);
+
+    const servicosDistintos = new Set(
+      solicitacoes
+        .map((s) => Number(s.servicoId))
+        .filter((servicoId) => servicosTributariosValidos.has(servicoId)),
+    );
+
+    if (servicosDistintos.size >= 2) {
+      return {
+        id: SERVICO_ID.PLANEJAMENTO_TRIBUTARIO,
+        nome: 'Planejamento Tributário',
+        descricao: 'Análise para otimização da carga tributária',
+      };
+    }
+
+    return null;
+  }
+
+  async regularizacaoCadastral(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    if (!usuario) {
+      return null;
+    }
+
+    const isVazio = (valor: any): boolean => {
+      return (
+        valor === null ||
+        valor === undefined ||
+        (typeof valor === 'string' && valor.trim() === '')
+      );
+    };
+
+    const usuarioIncompleto =
+      isVazio((usuario as any).cpf_cnpj) ||
+      isVazio((usuario as any).celular);
+
+    if (usuarioIncompleto) {
+      return {
+        id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
+        nome: 'Regularização Cadastral',
+        descricao: 'Correção/regularização de dados cadastrais',
+      };
+    }
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (empresa) {
+      const empresaIncompleta =
+        isVazio(empresa.nome_fantasia) ||
+        isVazio(empresa.inscricao_estadual) ||
+        isVazio(empresa.inscricao_municipal) ||
+        isVazio(empresa.data_abertura);
+
+      if (empresaIncompleta) {
+        return {
+          id: SERVICO_ID.REGULARIZACAO_CADASTRAL,
+          nome: 'Regularização Cadastral',
+          descricao: 'Correção/regularização de dados cadastrais',
+        };
+      }
+    }
+
+    return null;
+  }
+
+  async consultoriaContabil(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto | null> {
+    const usuario = await Usuario.findByPk(usuarioId, {
+      include: ['empresas'],
+    });
+
+    const empresa = (usuario as any)?.empresas?.[0];
+
+    if (!empresa?.id) {
+      return null;
+    }
+
+    const solicitacoes = await this.solicitacaoModel.findAll({
+      where: {
+        empresaId: empresa.id,
+      },
+    });
+
+    const servicosId = solicitacoes.map((s) => s.servicoId);
+
+    if (servicosId.includes(SERVICO_ID.CONSULTORIA_CONTABIL)) {
+      return null;
+    }
+
+    const servicosDistintos = new Set(
+      servicosId.filter((id) => id !== SERVICO_ID.CONSULTORIA_CONTABIL),
+    );
+
+    if (servicosDistintos.size >= 3) {
+      return {
+        id: SERVICO_ID.CONSULTORIA_CONTABIL,
+        nome: 'Consultoria Contábil',
+        descricao: 'Atendimento para análise de questões contábeis',
+      };
+    }
+
+    return null;
+  }
+
+  async obterRecomendacao(
+    usuarioId: number,
+  ): Promise<RecomendacaoRespostaDto[]> {
+    const resultados = await Promise.all([
+      this.verificarRecomendacaoRegularizacaoObrigacoesFiscais(usuarioId),
+      this.verificarRecomendacaoRegularizacaoDebitosFiscais(usuarioId),
+      this.verificarRecomendacaoParcelamentoDebitosFiscais(usuarioId),
+      this.verificarRecomendacaoRecursoMultaInfracaoFiscal(usuarioId),
+      this.verificarRecomendacaoEntregaObrigacoesAcessorias(usuarioId),
+      this.recomendarRevisaoRegime(usuarioId),
+      this.recomendarPlanejamentoTributario(usuarioId),
+      this.regularizacaoCadastral(usuarioId),
+      this.consultoriaContabil(usuarioId),
+    ]);
+
+    const recomendacoes = resultados.filter(
+      (recomendacao): recomendacao is RecomendacaoRespostaDto =>
+        recomendacao !== null,
+    );
+
+    if (recomendacoes.length > 0) {
+      return recomendacoes;
+    }
+
+    return this.buscarServicosPopulares();
+  }
+}
