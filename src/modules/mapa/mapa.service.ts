@@ -59,4 +59,35 @@ export class MapaService {
       id,
     };
   }
+
+  // Regra: só parceiros ativos e com latitude/longitude preenchidas.
+  // Obs: o cadastro atual ainda não tem o campo "ativo". Quando ele não
+  // existir, o parceiro é considerado ativo.
+  findAllParceiros(): Parceiro[] {
+    return this.parceiros.filter((p) => {
+      const ativo = (p as Parceiro & { ativo?: boolean }).ativo !== false;
+      return ativo && p.latitude.trim() !== '' && p.longitude.trim() !== '';
+    });
+  }
+
+  findByTipo(tipo: string): Parceiro[] {
+    return this.findAllParceiros().filter(
+      (p) => p.tipo.toLowerCase() === tipo.trim().toLowerCase(),
+    );
+  }
+
+  findByCidade(cidade: string): Parceiro[] {
+    return this.findAllParceiros().filter(
+      (p) => p.cidade.toLowerCase() === cidade.trim().toLowerCase(),
+    );
+  }
+
+  // Sem parâmetros: retorna todos os registros válidos
+  findComFiltro(tipo?: string, cidade?: string): Parceiro[] {
+    return this.findAllParceiros().filter(
+      (p) =>
+        (!tipo || p.tipo.toLowerCase() === tipo.trim().toLowerCase()) &&
+        (!cidade || p.cidade.toLowerCase() === cidade.trim().toLowerCase()),
+    );
+  }
 }
