@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateParceiroDto, ParceiroTipo } from './dto/create-parceiro.dto.js';
 
 export interface Parceiro {
@@ -11,6 +11,7 @@ export interface Parceiro {
   telefone: string;
   descricao?: string;
   linkLock?: string;
+  ativo?: boolean;
 }
 
 @Injectable()
@@ -89,5 +90,27 @@ export class MapaService {
         (!tipo || p.tipo.toLowerCase() === tipo.trim().toLowerCase()) &&
         (!cidade || p.cidade.toLowerCase() === cidade.trim().toLowerCase()),
     );
+  }
+
+  findParceiroById(id: number) {
+    const parceiro = this.parceiros.find((p) => p.id === id);
+
+    if (!parceiro) {
+      throw new NotFoundException(`Parceiro com ID ${id} não encontrado.`);
+    }
+
+    // Retorno adaptado para o formato snake_case esperado no card do frontend
+    return {
+      id: parceiro.id,
+      nome: parceiro.nomeFantasia,
+      tipo: parceiro.tipo,
+      cidade: parceiro.cidade,
+      latitude: Number(parceiro.latitude),
+      longitude: Number(parceiro.longitude),
+      telefone: parceiro.telefone,
+      descricao: parceiro.descricao || null,
+      link_lock: parceiro.linkLock || null,
+      ativo: parceiro.ativo !== false,
+    };
   }
 }
