@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Op } from 'sequelize';
-import { Faq } from '../../models/faq.model.js';
+import { Faq } from '../models/faq.model';
+import { CreateFaqDto } from './dto/create-faq.dto';
+import { UpdateFaqDto } from './dto/update-faq.dto';
 
 @Injectable()
 export class FaqService {
@@ -10,38 +11,20 @@ export class FaqService {
     private readonly faqModel: typeof Faq,
   ) {}
 
-  async listar(categoria?: string, palavra?: string): Promise<Faq[]> {
-    const filtros = [];
+  async create(createFaqDto: CreateFaqDto): Promise<Faq> {
+    return await this.faqModel.create({
+      ...createFaqDto,
+      status: true,
+    } as any);
+  }
 
-    if (categoria) {
-      filtros.push({
-        categoria,
-      });
+  async update(id: number, updateFaqDto: UpdateFaqDto): Promise<Faq> {
+    const faq = await this.faqModel.findByPk(id);
+    
+    if (!faq) {
+      throw new NotFoundException(`FAQ com ID ${id} não encontrada`);
     }
 
-    if (palavra) {
-      filtros.push({
-        [Op.or]: [
-          {
-            pergunta: {
-              [Op.like]: `%${palavra}%`,
-            },
-          },
-          {
-            resposta: {
-              [Op.like]: `%${palavra}%`,
-            },
-          },
-        ],
-      });
-    }
-
-    return this.faqModel.findAll({
-      where: {
-        status: true,
-        [Op.and]: filtros,
-      },
-      order: [['id', 'ASC']],
-    });
+    return await faq.update(updateFaqDto);
   }
 }
