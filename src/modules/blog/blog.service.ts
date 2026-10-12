@@ -13,19 +13,9 @@ export class BlogService {
   ) {}
 
   async listar(categoria?: string, titulo?: string): Promise<Blog[]> {
-    const where: WhereOptions = {
-      ativo: true,
-    };
-
-    if (categoria) {
-      where.categoria = categoria;
-    }
-
-    if (titulo) {
-      where.titulo = {
-        [Op.like]: `%${titulo}%`,
-      };
-    }
+    const where: WhereOptions = { ativo: true };
+    if (categoria) where.categoria = categoria;
+    if (titulo) where.titulo = { [Op.like]: `%${titulo}%` };
 
     return this.blogModel.findAll({
       where,
@@ -39,12 +29,23 @@ export class BlogService {
 
   async update(id: number, updateBlogDto: UpdateBlogDto): Promise<Blog> {
     const blog = await this.blogModel.findByPk(id);
-    
-    if (!blog) {
-      throw new NotFoundException(`Artigo com ID ${id} não encontrado`);
-    }
-    
+    if (!blog) throw new NotFoundException(`Artigo com ID ${id} não encontrado`);
     return await blog.update(updateBlogDto);
   }
-}
 
+  async getById(id: number): Promise<Blog> {
+    const blog = await this.blogModel.findByPk(id);
+    if (!blog) throw new NotFoundException(`Artigo com ID ${id} não encontrado`);
+    return blog;
+  }
+
+  async toggleStatus(id: number): Promise<Blog> {
+    const blog = await this.getById(id);
+    return await blog.update({ ativo: !blog.ativo } as any);
+  }
+
+  async delete(id: number): Promise<void> {
+    const blog = await this.getById(id);
+    await blog.destroy();
+  }
+}
