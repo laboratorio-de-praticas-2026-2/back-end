@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -21,12 +22,12 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );
 
   const port = process.env.PORT ?? 3333;
-  await app.listen(port);
 
   // Teste de conexão com o banco
   try {
@@ -36,6 +37,8 @@ async function bootstrap() {
   } catch (err) {
     logger.error('❌ Falha ao conectar no banco', err);
   }
+
+  await app.listen(port);
 
   // Logs da API
   logger.log(`🚀 API rodando em http://localhost:${port}`);
