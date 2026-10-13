@@ -17,10 +17,13 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
 import { MensagemModule } from './modules/contato/mensagem/mensagem.module.js';
+import { RecomendacaoModule } from './modules/recomendacao/recomendacao.module.js';
 import { BlogModule } from './modules/blog/blog.module.js';
 import { FaqModule } from './modules/faq/faq.module.js';
 import { ChatModule } from './modules/chat/chat.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+import { NotificacaoModule } from './modules/notificacao/notificacao.module.js';
+
 import { AgendamentoModule } from './modules/agendamento/agendamento.module.js';
 import { AgendamentoModel } from './models/agendamento.model.js';
 import { TipoAtendimentoModel } from './models/tipo-atendimento.model.js';
@@ -123,10 +126,12 @@ PrismaModule,
     ContatoModule,
     DisparoModule,
     MensagemModule,
+    RecomendacaoModule,
     BlogModule,
     FaqModule,
     ChatModule,
     DashboardModule,
+    NotificacaoModule,
     AgendamentoModule,
     ClienteModule,
     AdministracaoModule,
