@@ -1,76 +1,63 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { RelatoriosPdfService } from './relatorios.pdf.service.js';
+import { RelatorioTemplateService } from './relatorio-template.service.js';
+import { RelatoriosService } from './relatorios.service.js';
 import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
-import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
 @Processor('relatorios')
 export class RelatoriosWorker extends WorkerHost {
+  private readonly logger = new Logger(RelatoriosWorker.name);
+
   constructor(
     private readonly relatoriosPdfService: RelatoriosPdfService,
+    private readonly templateService: RelatorioTemplateService,
     private readonly cloudinaryService: CloudinaryService,
-    private readonly prisma: PrismaService,
+    private readonly relatoriosService: RelatoriosService,
   ) {
     super();
   }
 
-  async process(job: Job): Promise<void> {
-    const relatorioId = job.data.relatorioId;
+  async process(job: Job<{ relatorioId: string }>): Promise<void> {
+    const { relatorioId } = job.data;
 
-    console.log('Job recebido:', job.name, job.data);
+    this.logger.log(`Gerando relatório ${relatorioId} (job ${job.id})`);
 
     try {
-      await this.prisma.relatorio.update({
-        where: { id: relatorioId },
-        data: {
-          status: 'pendente',
-        },
-      });
+      const relatorio = await this.relatoriosService.findOne(relatorioId);
 
-      const html = `
-        <html>
-          <body>
-            <h1>Relatório de teste</h1>
-            <p>ID do relatório: ${relatorioId}</p>
-          </body>
-        </html>
-      `;
+      const html = this.templateService.renderRelatorio({
+        nome: relatorio.nome,
+        categoria: relatorio.categoria,
+        descricao: relatorio.descricao,
+        dataInicio: relatorio.dataInicio,
+        dataTermino: relatorio.dataTermino,
+      });
 
       const pdf = await this.relatoriosPdfService.gerarPdf(html);
-
-      console.log('PDF gerado em memória:', pdf.length, 'bytes');
-
       const url = await this.cloudinaryService.uploadPdf(pdf);
 
-      console.log('PDF enviado para o Cloudinary:', url);
+      // O relatório só passa a GERADO depois que o PDF foi gerado e armazenado.
+      await this.relatoriosService.markGenerated(relatorioId, url);
 
-      await this.prisma.relatorio.update({
-        where: { id: relatorioId },
-        data: {
-          status: 'gerado',
-          urlDocumentoHash: url,
-          dataGeracao: new Date(),
-        },
-      });
+      this.logger.log(`Relatório ${relatorioId} gerado (${pdf.length} bytes)`);
     } catch (error) {
-      console.error(
-        'Erro ao processar relatório:',
-        error instanceof Error ? error.message : error,
+      this.logger.error(
+        `Falha ao gerar relatório ${relatorioId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
       );
 
       try {
-        await this.prisma.relatorio.update({
-          where: { id: relatorioId },
-          data: {
-            status: 'falha',
-          },
-        });
+        await this.relatoriosService.markFailed(relatorioId);
       } catch (updateError) {
-        console.error(
-          'Erro ao atualizar status para falha:',
-          updateError instanceof Error ? updateError.message : updateError,
+        this.logger.error(
+          `Erro ao atualizar status para FALHA: ${
+            updateError instanceof Error ? updateError.message : updateError
+          }`,
         );
       }
 

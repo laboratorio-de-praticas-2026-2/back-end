@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
 
 export class SimulacaoDto {
   @Type(() => Number)
@@ -21,11 +21,13 @@ export class SimulacaoDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(360)
   parcelas?: number;
 
   @Type(() => Number)
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(100)
   taxaJurosMensal?: number;
 }

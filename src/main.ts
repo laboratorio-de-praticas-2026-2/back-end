@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'node:path';
 import { Sequelize } from 'sequelize-typescript';
 import { AppModule, ObserveInstrument } from './app.module.js';
-import { validationPipe } from './commons/pipes/validation.pipe.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -12,11 +13,25 @@ async function bootstrap() {
   const observeEnabled =
     !!process.env.OBSERVE_APP_KEY && !!process.env.OBSERVE_APP_SECRET;
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     ...(observeEnabled && { instrument: ObserveInstrument }),
   });
 
   app.enableCors();
+
+  // Frontend estático do portal (Relatórios e Simulador) — pasta `web/`.
+  // A URL base da API é configurável por PORTAL_API_BASE_URL (vazio = mesma origem).
+  app.use('/portal/config.js', (_req: unknown, res: any) => {
+    res
+      .type('application/javascript')
+      .set('Cache-Control', 'no-store')
+      .send(
+        `window.__PORTAL_CONFIG__ = ${JSON.stringify({
+          apiBaseUrl: process.env.PORTAL_API_BASE_URL ?? '',
+        })};`,
+      );
+  });
+  app.useStaticAssets(join(process.cwd(), 'web'), { prefix: '/portal/' });
 
   app.useGlobalPipes(
     new ValidationPipe({

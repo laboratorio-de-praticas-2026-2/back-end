@@ -2,7 +2,7 @@ FROM node:22-alpine
 
 WORKDIR /usr/src/app
 
-RUN apk add --no-cache chromium
+RUN apk add --no-cache chromium ttf-freefont
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium

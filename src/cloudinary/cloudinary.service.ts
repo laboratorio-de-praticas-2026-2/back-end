@@ -60,4 +60,22 @@ export class CloudinaryService {
       );
     });
   }
+
+  async downloadPdf(url: string): Promise<Buffer> {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Falha ao baixar PDF do Cloudinary: HTTP ${response.status}`,
+      );
+    }
+
+    const contentType = response.headers.get('content-type');
+
+    if (contentType && !contentType.includes('application/pdf')) {
+      throw new Error('O arquivo retornado pelo Cloudinary não é um PDF');
+    }
+
+    return Buffer.from(await response.arrayBuffer());
+  }
 }

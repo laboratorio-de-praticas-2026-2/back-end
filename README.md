@@ -1,3 +1,67 @@
+# Portal Contábil — Relatórios e Simulador (Issue #145)
+
+Esta entrega adiciona ao back-end NestJS o frontend das telas de **Relatórios** (listagem, filtros,
+paginação, pré-visualização, download e exclusão de PDFs, geração de novo relatório) e do **Simulador**,
+integrado às APIs reais. Detalhes de decisões, arquivos alterados, comandos executados e pendências:
+[`docs/ISSUE-145.md`](docs/ISSUE-145.md).
+
+## Pré-requisitos
+
+- Node.js 22+ e npm (ou Docker + Docker Compose)
+- MySQL 8 e Redis 7 (o `docker-compose.yml` sobe os dois)
+- Credenciais do Cloudinary (armazenamento dos PDFs gerados)
+- Chromium para o Puppeteer (o `Dockerfile` instala; localmente o Puppeteer baixa o seu)
+
+## Configuração
+
+```bash
+cp .env.example .env   # preencha DB_*, REDIS_*, CLOUDINARY_*; nunca versione o .env
+npm install
+```
+
+| Variável | Finalidade |
+| --- | --- |
+| `DB_*` | Conexão MySQL (Sequelize) |
+| `REDIS_HOST` / `REDIS_PORT` | Fila BullMQ que gera os PDFs |
+| `CLOUDINARY_*` | Upload/exclusão dos PDFs |
+| `PUPPETEER_EXECUTABLE_PATH` | Chromium usado na geração (Docker: `/usr/bin/chromium`) |
+| `PORTAL_API_BASE_URL` | URL base da API usada pelo navegador. Vazio = mesma origem |
+
+## Executar
+
+```bash
+# local
+npm run build && npm run start:prod      # ou: npm run start:dev
+# Docker
+docker compose up --build
+```
+
+O portal fica em **http://localhost:3333/portal/** (rotas: `#/relatorios`, `#/relatorios/novo`, `#/simulador`).
+O frontend é estático (`web/`, JavaScript ES modules, sem build) e é publicado pelo próprio NestJS;
+`/portal/config.js` é gerado a partir de `PORTAL_API_BASE_URL`.
+
+## Testes
+
+```bash
+npm test          # back-end (vitest)
+npm run test:web  # frontend (node:test): cliente HTTP, validações, formatação, PDF, rotas
+npm run lint
+npm run build
+```
+
+## Uso
+
+- **Relatórios**: busca por nome, filtro por categoria e por período (data de início do relatório entre
+  _De_ e _Até_), paginação de 10 itens. Status `PENDENTE`, `GERADO` e `FALHA`; apenas `GERADO` possui
+  PDF (visualizar/abrir/baixar). Relatórios `PENDENTE` são atualizados automaticamente; `FALHA` pode
+  ser reenviado. Exclusão pede confirmação e remove também o PDF no Cloudinary.
+- **Gerar novo relatório**: cria o relatório (`POST /relatorios`) e enfileira a geração
+  (`POST /relatorios/generate`).
+- **Simulador**: envia `impostos`, `multas`, `honorarios` e, opcionalmente, `parcelas` (1–360) e
+  `taxaJurosMensal` (0–100) para `POST /relatorios/simulacao` e exibe o resultado retornado pela API.
+
+---
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank">
     <img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" />

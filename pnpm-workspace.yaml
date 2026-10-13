@@ -1,3 +1,6 @@
 allowBuilds:
-  msgpackr-extract: set this to true or false
-  puppeteer: set this to true or false
+  '@prisma/engines': true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  puppeteer: true

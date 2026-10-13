@@ -1,29 +1,42 @@
 import { describe, expect, it, vi } from 'vitest';
+import { NotFoundException } from '@nestjs/common';
 import { RelatoriosController } from './relatorios.controller.js';
 
-describe('RelatoriosController', () => {
-  const createService = () => ({
+const ID = 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f';
+
+function setup() {
+  const service = {
     create: vi.fn(),
     findCategories: vi.fn(),
     findAll: vi.fn(),
-  });
+    findOne: vi.fn(),
+    findPdf: vi.fn(),
+    markPending: vi.fn(),
+    remove: vi.fn(),
+    simular: vi.fn(),
+    downloadPdf: vi.fn(),
+  };
 
-  it('deve estar definido', () => {
-    const service = createService();
+  const producer = {
+    adicionarGeracao: vi.fn().mockResolvedValue(undefined),
+  };
 
-    const controller = new RelatoriosController(
-      service as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+  const pdfGenerator = {
+    gerar: vi.fn(),
+  };
 
-    expect(controller).toBeDefined();
-  });
+  const controller = new RelatoriosController(
+    service as any,
+    producer as any,
+    pdfGenerator as any,
+  );
 
+  return { controller, service, producer, pdfGenerator };
+}
+
+describe('RelatoriosController', () => {
   it('deve criar um relatório', async () => {
-    const service = createService();
+    const { controller, service } = setup();
 
     const data = {
       nome: 'Relatório Financeiro',
@@ -33,421 +46,193 @@ describe('RelatoriosController', () => {
       data_termino: '2026-09-30',
     };
 
-    const createdReport = {
-      id: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
+    const created = {
+      id: ID,
       ...data,
       status: 'PENDENTE',
       arquivoUrl: null,
     };
 
-    service.create.mockResolvedValue(createdReport);
+    service.create.mockResolvedValue(created);
 
-    const controller = new RelatoriosController(
-      service as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
-
-    const result = await controller.create(data as any);
-
-    expect(result).toEqual(createdReport);
+    expect(await controller.create(data as any)).toEqual(created);
     expect(service.create).toHaveBeenCalledWith(data);
   });
 
   it('deve retornar as categorias dos relatórios', async () => {
-    const service = createService();
+    const { controller, service } = setup();
 
-    const categories = ['Financeiro', 'Fiscal', 'Contábil'];
+    service.findCategories.mockResolvedValue(['Financeiro', 'Fiscal']);
 
-    service.findCategories.mockResolvedValue(categories);
-
-    const controller = new RelatoriosController(
-      service as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
-
-    const result = await controller.findCategories();
-
-    expect(result).toEqual(categories);
-    expect(service.findCategories).toHaveBeenCalledWith();
+    expect(await controller.findCategories()).toEqual([
+      'Financeiro',
+      'Fiscal',
+    ]);
   });
 
-  it('deve retornar relatórios com filtros', async () => {
-    const service = createService();
+  it('deve retornar relatórios com filtros e paginação', async () => {
+    const { controller, service } = setup();
 
     const filters = {
-      nome: 'Financeiro',
-      categoria: 'Financeiro',
-      status: 'PENDENTE' as const,
-      data_inicio: '2026-09-01',
-      data_termino: '2026-09-30',
-      page: 1,
+      nome: 'Fin',
+      status: 'GERADO',
+      page: 2,
       limit: 10,
     };
 
-    const response = {
-      dados: [
-        {
-          id: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
-          nome: 'Relatório Financeiro',
-          categoria: 'Financeiro',
-          status: 'PENDENTE',
-        },
-      ],
-      total: 1,
-      pagina: 1,
+    const result = {
+      dados: [],
+      total: 0,
+      pagina: 2,
       limite: 10,
     };
 
-    service.findAll.mockResolvedValue(response);
+    service.findAll.mockResolvedValue(result);
 
-    const controller = new RelatoriosController(
-      service as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
-
-    const result = await controller.findAll(filters as any);
-
-    expect(result).toEqual(response);
+    expect(await controller.findAll(filters as any)).toEqual(result);
     expect(service.findAll).toHaveBeenCalledWith(filters);
   });
 
-  it('deve colocar o relatório pendente e enviar para a fila', async () => {
-    const adicionarGeracao = vi.fn().mockResolvedValue(undefined);
+  it('coloca o relatório como PENDENTE e enfileira a geração', async () => {
+    const { controller, service, producer } = setup();
 
-    const findUnique = vi.fn().mockResolvedValue({
-      id: 1,
-      status: 'gerado',
+    service.markPending.mockResolvedValue({ id: ID });
+
+    const result = await controller.gerarRelatorio({
+      relatorioId: ID,
     });
 
-    const update = vi.fn().mockResolvedValue({
-      id: 1,
-      status: 'pendente',
-    });
+    expect(service.markPending).toHaveBeenCalledWith(ID);
+    expect(producer.adicionarGeracao).toHaveBeenCalledWith(ID);
 
-    const service = createService();
-
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao,
-      } as any,
-      {
-        relatorio: {
-          findUnique,
-          update,
-        },
-      } as any,
-      {} as any,
-      {} as any,
-    );
-
-    const resposta = await controller.gerarRelatorio({
-      relatorioId: 1,
-    });
-
-    expect(findUnique).toHaveBeenCalledWith({
-      where: { id: 1 },
-    });
-
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: {
-        status: 'pendente',
-      },
-    });
-
-    expect(adicionarGeracao).toHaveBeenCalledWith(1);
-
-    expect(resposta).toEqual({
+    expect(result).toEqual({
       mensagem: 'Job de geração de relatório enviado para a fila',
-      relatorioId: 1,
-      status: 'pendente',
+      relatorioId: ID,
+      status: 'PENDENTE',
     });
   });
 
-  it('deve rejeitar relatorioId inválido', async () => {
-    const adicionarGeracao = vi.fn();
-    const service = createService();
+  it('não enfileira quando o relatório não existe', async () => {
+    const { controller, service, producer } = setup();
 
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao,
-      } as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+    service.markPending.mockRejectedValue(new NotFoundException());
 
     await expect(
-      controller.gerarRelatorio({ relatorioId: 0 }),
-    ).rejects.toThrow(
-      'relatorioId deve ser um número inteiro positivo',
-    );
+      controller.gerarRelatorio({ relatorioId: ID }),
+    ).rejects.toThrow(NotFoundException);
 
-    expect(adicionarGeracao).not.toHaveBeenCalled();
+    expect(producer.adicionarGeracao).not.toHaveBeenCalled();
   });
 
-  it('deve rejeitar relatório inexistente', async () => {
-    const findUnique = vi.fn().mockResolvedValue(null);
-    const service = createService();
+  it('busca um relatório pelo ID', async () => {
+    const { controller, service } = setup();
 
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao: vi.fn(),
-      } as any,
-      {
-        relatorio: {
-          findUnique,
-        },
-      } as any,
-      {} as any,
-      {} as any,
-    );
+    service.findOne.mockResolvedValue({ id: ID });
 
-    await expect(
-      controller.gerarRelatorio({ relatorioId: 999 }),
-    ).rejects.toThrow('Relatório não encontrado');
+    expect(await controller.buscarRelatorio(ID)).toEqual({ id: ID });
+    expect(service.findOne).toHaveBeenCalledWith(ID);
   });
 
-  it('deve buscar um relatório pelo ID', async () => {
-    const relatorio = {
-      id: 1,
-      nome: 'Relatório teste',
-      status: 'gerado',
-    };
+  it('envia o PDF diretamente para download pelo ID', async () => {
+    const { controller, service } = setup();
 
-    const service = createService();
+    const url = 'https://x/a.pdf';
+    const pdf = Buffer.from('%PDF-1.4 teste');
 
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao: vi.fn(),
-      } as any,
-      {
-        relatorio: {
-          findUnique: vi.fn().mockResolvedValue(relatorio),
-        },
-      } as any,
-      {} as any,
-      {} as any,
-    );
-
-    const resposta = await controller.buscarRelatorio('1');
-
-    expect(resposta).toEqual(relatorio);
-  });
-
-  it('deve buscar o PDF de um relatório pelo ID', async () => {
-    const service = createService();
-
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao: vi.fn(),
-      } as any,
-      {
-        relatorio: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: 1,
-            urlDocumentoHash:
-              'https://res.cloudinary.com/teste/relatorio.pdf',
-          }),
-        },
-      } as any,
-      {} as any,
-      {} as any,
-    );
-
-    const resposta = await controller.buscarPdf('1');
-
-    expect(resposta).toEqual({
-      id: 1,
-      url: 'https://res.cloudinary.com/teste/relatorio.pdf',
-    });
-  });
-
-  it('deve rejeitar PDF inexistente', async () => {
-    const service = createService();
-
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao: vi.fn(),
-      } as any,
-      {
-        relatorio: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: 1,
-            urlDocumentoHash: null,
-          }),
-        },
-      } as any,
-      {
-        deletePdf: vi.fn(),
-      } as any,
-      {} as any,
-    );
-
-    await expect(
-      controller.buscarPdf('1'),
-    ).rejects.toThrow('PDF do relatório não encontrado');
-  });
-
-  it('deve rejeitar exclusão de relatório inexistente', async () => {
-    const service = createService();
-
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao: vi.fn(),
-      } as any,
-      {
-        relatorio: {
-          findUnique: vi.fn().mockResolvedValue(null),
-        },
-      } as any,
-      {
-        deletePdf: vi.fn(),
-      } as any,
-      {} as any,
-    );
-
-    await expect(
-      controller.excluirRelatorio('999'),
-    ).rejects.toThrow('Relatório não encontrado');
-  });
-
-  it('deve excluir um relatório pelo ID e remover o PDF do Cloudinary', async () => {
-    const deleteRelatorio = vi.fn().mockResolvedValue({});
-
-    const findUnique = vi.fn().mockResolvedValue({
-      id: 1,
-      urlDocumentoHash:
-        'https://res.cloudinary.com/teste/raw/upload/v123456/relatorios/relatorio.pdf',
+    service.findPdf.mockResolvedValue({
+      id: ID,
+      url,
     });
 
-    const deletePdf = vi.fn().mockResolvedValue(undefined);
-    const service = createService();
-
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao: vi.fn(),
-      } as any,
-      {
-        relatorio: {
-          findUnique,
-          delete: deleteRelatorio,
-        },
-      } as any,
-      {
-        deletePdf,
-      } as any,
-      {} as any,
-    );
-
-    const resposta = await controller.excluirRelatorio('1');
-
-    expect(deletePdf).toHaveBeenCalledWith(
-      'relatorios/relatorio.pdf',
-    );
-
-    expect(deleteRelatorio).toHaveBeenCalledWith({
-      where: { id: 1 },
-    });
-
-    expect(resposta).toEqual({
-      mensagem: 'Relatório excluído com sucesso',
-      id: 1,
-    });
-  });
-
-  it('deve responder rapidamente após enviar o relatório para a fila', async () => {
-    const adicionarGeracao = vi.fn().mockResolvedValue(undefined);
-    const service = createService();
-
-    const controller = new RelatoriosController(
-      service as any,
-      {
-        adicionarGeracao,
-      } as any,
-      {
-        relatorio: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: 1,
-            status: 'gerado',
-          }),
-          update: vi.fn().mockResolvedValue({
-            id: 1,
-            status: 'pendente',
-          }),
-        },
-      } as any,
-      {} as any,
-      {} as any,
-    );
-
-    const inicio = Date.now();
-
-    const resposta = await controller.gerarRelatorio({
-      relatorioId: 1,
-    });
-
-    const duracao = Date.now() - inicio;
-
-    expect(adicionarGeracao).toHaveBeenCalledWith(1);
-    expect(resposta.status).toBe('pendente');
-    expect(duracao).toBeLessThan(1000);
-  });
-
-  it('envia o PDF diretamente com os headers de preview', async () => {
-    const pdf = Buffer.from('%PDF-test');
-
-    const pdfGeneratorService = {
-      gerar: vi.fn().mockResolvedValue(pdf),
-    };
+    service.downloadPdf.mockResolvedValue(pdf);
 
     const response = {
       set: vi.fn().mockReturnThis(),
-      send: vi.fn(),
+      send: vi.fn().mockReturnThis(),
+    };
+
+    await controller.buscarPdf(ID, response as any);
+
+    expect(service.findPdf).toHaveBeenCalledWith(ID);
+    expect(service.downloadPdf).toHaveBeenCalledWith(url);
+
+    expect(response.set).toHaveBeenCalledWith({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="relatorio-${ID}.pdf"`,
+      'Content-Length': String(pdf.length),
+    });
+
+    expect(response.send).toHaveBeenCalledWith(pdf);
+  });
+
+  it('propaga 404 quando o PDF não existe', async () => {
+    const { controller, service } = setup();
+
+    service.findPdf.mockRejectedValue(new NotFoundException());
+
+    const response = {
+      set: vi.fn().mockReturnThis(),
+      send: vi.fn().mockReturnThis(),
+    };
+
+    await expect(
+      controller.buscarPdf(ID, response as any),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(service.downloadPdf).not.toHaveBeenCalled();
+    expect(response.send).not.toHaveBeenCalled();
+  });
+
+  it('exclui um relatório pelo ID', async () => {
+    const { controller, service } = setup();
+
+    const result = {
+      mensagem: 'Relatório excluído com sucesso',
+      id: ID,
+    };
+
+    service.remove.mockResolvedValue(result);
+
+    expect(await controller.excluirRelatorio(ID)).toEqual(result);
+    expect(service.remove).toHaveBeenCalledWith(ID);
+  });
+
+  it('delega a simulação ao serviço', () => {
+    const { controller, service } = setup();
+
+    const dto = {
+      impostos: 1,
+      multas: 2,
+      honorarios: 3,
+    };
+
+    service.simular.mockReturnValue({ total: 6 });
+
+    expect(controller.simular(dto as any)).toEqual({ total: 6 });
+    expect(service.simular).toHaveBeenCalledWith(dto);
+  });
+
+  it('envia o PDF diretamente com os headers de preview', async () => {
+    const { controller, pdfGenerator } = setup();
+
+    const pdf = Buffer.from('%PDF-test');
+
+    pdfGenerator.gerar.mockResolvedValue(pdf);
+
+    const response = {
+      set: vi.fn().mockReturnThis(),
+      send: vi.fn().mockReturnThis(),
     };
 
     const dto = {
-      titulo: 'Relatório financeiro',
-      nomeCliente: 'Cliente de teste',
-      itens: [
-        {
-          descricao: 'Honorários',
-          valor: 500,
-          status: 'Pago',
-        },
-      ],
+      titulo: 'R',
+      nomeCliente: 'C',
+      itens: [],
     };
-
-    const controller = new RelatoriosController(
-      {
-        simular: vi.fn(),
-      } as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      pdfGeneratorService as any,
-    );
 
     await controller.preview(dto as any, response as any);
 
-    expect(pdfGeneratorService.gerar).toHaveBeenCalledWith(dto);
+    expect(pdfGenerator.gerar).toHaveBeenCalledWith(dto);
 
     expect(response.set).toHaveBeenCalledWith({
       'Content-Type': 'application/pdf',
@@ -458,27 +243,17 @@ describe('RelatoriosController', () => {
     expect(response.send).toHaveBeenCalledWith(pdf);
   });
 
-  it('propaga o erro do gerador para o tratamento padrão do Nest', async () => {
+  it('propaga o erro do gerador de preview', async () => {
+    const { controller, pdfGenerator } = setup();
+
     const error = new Error('Falha ao gerar PDF');
 
-    const pdfGeneratorService = {
-      gerar: vi.fn().mockRejectedValue(error),
-    };
+    pdfGenerator.gerar.mockRejectedValue(error);
 
     const response = {
-      set: vi.fn(),
-      send: vi.fn(),
+      set: vi.fn().mockReturnThis(),
+      send: vi.fn().mockReturnThis(),
     };
-
-    const controller = new RelatoriosController(
-      {
-        simular: vi.fn(),
-      } as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      pdfGeneratorService as any,
-    );
 
     await expect(
       controller.preview({} as any, response as any),

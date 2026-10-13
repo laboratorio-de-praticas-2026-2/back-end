@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/sequelize';
 import { Op } from 'sequelize';
+import { NotFoundException } from '@nestjs/common';
+import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
 import { RelatoriosService } from './relatorios.service.js';
 import { Report } from '../../models/report.model.js';
 
@@ -10,7 +12,10 @@ describe('RelatoriosService', () => {
     findAll: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     findAndCountAll: ReturnType<typeof vi.fn>;
+    findByPk: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
   };
+  let cloudinary: { deletePdf: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -22,13 +27,20 @@ describe('RelatoriosService', () => {
             findAll: vi.fn(),
             create: vi.fn(),
             findAndCountAll: vi.fn(),
+            findByPk: vi.fn(),
+            update: vi.fn(),
           },
+        },
+        {
+          provide: CloudinaryService,
+          useValue: { deletePdf: vi.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();
 
     service = module.get<RelatoriosService>(RelatoriosService);
     reportModel = module.get(getModelToken(Report));
+    cloudinary = module.get(CloudinaryService);
   });
 
   it('should be defined', () => {
@@ -325,6 +337,118 @@ describe('RelatoriosService', () => {
       parcelas: 1,
       total: 175,
       valorParcela: 175,
+    });
+  });
+
+  describe('consulta, PDF, status e exclusão', () => {
+    const id = 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f';
+
+    it('findOne retorna o relatório', async () => {
+      reportModel.findByPk.mockResolvedValue({ id });
+
+      expect(await service.findOne(id)).toEqual({ id });
+      expect(reportModel.findByPk).toHaveBeenCalledWith(id);
+    });
+
+    it('findOne lança 404 quando não existe', async () => {
+      reportModel.findByPk.mockResolvedValue(null);
+
+      await expect(service.findOne(id)).rejects.toThrow(NotFoundException);
+    });
+
+    it('findPdf retorna a URL quando o relatório está GERADO', async () => {
+      reportModel.findByPk.mockResolvedValue({
+        id,
+        status: 'GERADO',
+        arquivoUrl: 'https://res.cloudinary.com/x/raw/upload/v1/a.pdf',
+      });
+
+      expect(await service.findPdf(id)).toEqual({
+        id,
+        url: 'https://res.cloudinary.com/x/raw/upload/v1/a.pdf',
+      });
+    });
+
+    it.each(['PENDENTE', 'FALHA'])(
+      'findPdf lança 404 quando o status é %s',
+      async (status) => {
+        reportModel.findByPk.mockResolvedValue({ id, status, arquivoUrl: null });
+
+        await expect(service.findPdf(id)).rejects.toThrow(NotFoundException);
+      },
+    );
+
+    it('markPending zera a URL e volta o status para PENDENTE', async () => {
+      const update = vi.fn().mockResolvedValue(undefined);
+      reportModel.findByPk.mockResolvedValue({ id, update });
+
+      await service.markPending(id);
+
+      expect(update).toHaveBeenCalledWith({
+        status: 'PENDENTE',
+        arquivoUrl: null,
+      });
+    });
+
+    it('markGenerated e markFailed atualizam o status', async () => {
+      await service.markGenerated(id, 'https://x/a.pdf');
+      await service.markFailed(id);
+
+      expect(reportModel.update).toHaveBeenNthCalledWith(
+        1,
+        { status: 'GERADO', arquivoUrl: 'https://x/a.pdf' },
+        { where: { id } },
+      );
+      expect(reportModel.update).toHaveBeenNthCalledWith(
+        2,
+        { status: 'FALHA' },
+        { where: { id } },
+      );
+    });
+
+    it('remove apaga o PDF no Cloudinary e depois o registro', async () => {
+      const destroy = vi.fn().mockResolvedValue(undefined);
+      reportModel.findByPk.mockResolvedValue({
+        id,
+        destroy,
+        arquivoUrl:
+          'https://res.cloudinary.com/demo/raw/upload/v1700000000/relatorios/a.pdf',
+      });
+
+      const result = await service.remove(id);
+
+      expect(cloudinary.deletePdf).toHaveBeenCalledWith('relatorios/a.pdf');
+      expect(destroy).toHaveBeenCalled();
+      expect(result).toEqual({ mensagem: 'Relatório excluído com sucesso', id });
+    });
+
+    it('remove não chama o Cloudinary quando não há PDF', async () => {
+      const destroy = vi.fn().mockResolvedValue(undefined);
+      reportModel.findByPk.mockResolvedValue({ id, destroy, arquivoUrl: null });
+
+      await service.remove(id);
+
+      expect(cloudinary.deletePdf).not.toHaveBeenCalled();
+      expect(destroy).toHaveBeenCalled();
+    });
+
+    it('remove preserva o registro se a exclusão no Cloudinary falhar', async () => {
+      const destroy = vi.fn();
+      reportModel.findByPk.mockResolvedValue({
+        id,
+        destroy,
+        arquivoUrl: 'https://res.cloudinary.com/demo/raw/upload/v1/a.pdf',
+      });
+      cloudinary.deletePdf.mockRejectedValue(new Error('cloudinary fora'));
+
+      await expect(service.remove(id)).rejects.toThrow('cloudinary fora');
+      expect(destroy).not.toHaveBeenCalled();
+    });
+
+    it('remove lança 404 quando o relatório não existe', async () => {
+      reportModel.findByPk.mockResolvedValue(null);
+
+      await expect(service.remove(id)).rejects.toThrow(NotFoundException);
     });
   });
 });

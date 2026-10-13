@@ -225,7 +225,7 @@ describe('SolicitacoesService', () => {
 
       const call = parcelaModel.findOne.mock.calls[0][0];
       expect(call.where.status[Op.in]).toEqual([StatusParcelaEnum.ATIVO, StatusParcelaEnum.ATRASADO]);
-      expect(call.include[0].where.obrigacaoId[Op.in]).toEqual([10, 11]);
+      expect(call.include[0].where.idObrigacao[Op.in]).toEqual([10, 11]);
     });
 
     it('seleciona só mensalidade e serviço avulso (exclui tributo) e solicitações não canceladas', async () => {

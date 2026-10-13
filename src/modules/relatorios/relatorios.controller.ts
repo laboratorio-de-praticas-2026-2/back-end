@@ -1,12 +1,11 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
-  NotFoundException,
   Query,
   Res,
 } from '@nestjs/common';
@@ -14,6 +13,7 @@ import type { Response } from 'express';
 
 import { CreateReportDto } from './dto/create-report.dto.js';
 import { FindReportsDto } from './dto/find-reports.dto.js';
+import { GenerateReportDto } from './dto/generate-report.dto.js';
 import { RelatorioPdfDto } from './dto/relatorio-pdf.dto.js';
 import { SimulacaoDto } from './dto/simulacao.dto.js';
 
@@ -21,16 +21,11 @@ import { RelatoriosService } from './relatorios.service.js';
 import { RelatoriosProducer } from './relatorios.producer.js';
 import { PdfGeneratorService } from './pdf-generator.service.js';
 
-import { PrismaService } from '../../prisma/prisma.service.js';
-import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
-
 @Controller('relatorios')
 export class RelatoriosController {
   constructor(
     private readonly relatoriosService: RelatoriosService,
     private readonly relatoriosProducer: RelatoriosProducer,
-    private readonly prisma: PrismaService,
-    private readonly cloudinaryService: CloudinaryService,
     private readonly pdfGeneratorService: PdfGeneratorService,
   ) {}
 
@@ -71,122 +66,41 @@ export class RelatoriosController {
   }
 
   @Post('generate')
-  async gerarRelatorio(@Body() body: { relatorioId: number }) {
-    if (
-      typeof body?.relatorioId !== 'number' ||
-      !Number.isInteger(body.relatorioId) ||
-      body.relatorioId <= 0
-    ) {
-      throw new BadRequestException(
-        'relatorioId deve ser um número inteiro positivo',
-      );
-    }
-
-    const relatorio = await this.prisma.relatorio.findUnique({
-      where: { id: body.relatorioId },
-    });
-
-    if (!relatorio) {
-      throw new NotFoundException('Relatório não encontrado');
-    }
-
-    await this.prisma.relatorio.update({
-      where: { id: body.relatorioId },
-      data: { status: 'pendente' },
-    });
-
+  async gerarRelatorio(@Body() body: GenerateReportDto) {
+    await this.relatoriosService.markPending(body.relatorioId);
     await this.relatoriosProducer.adicionarGeracao(body.relatorioId);
 
     return {
       mensagem: 'Job de geração de relatório enviado para a fila',
       relatorioId: body.relatorioId,
-      status: 'pendente',
+      status: 'PENDENTE',
     };
   }
 
   @Get(':id')
-  async buscarRelatorio(@Param('id') id: string) {
-    const relatorioId = Number(id);
-
-    if (!Number.isInteger(relatorioId) || relatorioId <= 0) {
-      throw new BadRequestException('ID do relatório inválido');
-    }
-
-    const relatorio = await this.prisma.relatorio.findUnique({
-      where: { id: relatorioId },
-    });
-
-    if (!relatorio) {
-      throw new NotFoundException('Relatório não encontrado');
-    }
-
-    return relatorio;
+  async buscarRelatorio(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.relatoriosService.findOne(id);
   }
 
   @Get(':id/pdf')
-  async buscarPdf(@Param('id') id: string) {
-    const relatorioId = Number(id);
+  async buscarPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    const relatorio = await this.relatoriosService.findPdf(id);
+    const pdf = await this.relatoriosService.downloadPdf(relatorio.url);
 
-    if (!Number.isInteger(relatorioId) || relatorioId <= 0) {
-      throw new BadRequestException('ID do relatório inválido');
-    }
-
-    const relatorio = await this.prisma.relatorio.findUnique({
-      where: { id: relatorioId },
-    });
-
-    if (!relatorio) {
-      throw new NotFoundException('Relatório não encontrado');
-    }
-
-    if (!relatorio.urlDocumentoHash) {
-      throw new NotFoundException('PDF do relatório não encontrado');
-    }
-
-    return {
-      id: relatorio.id,
-      url: relatorio.urlDocumentoHash,
-    };
+    response
+      .set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="relatorio-${id}.pdf"`,
+        'Content-Length': String(pdf.length),
+      })
+      .send(pdf);
   }
 
   @Delete(':id')
-  async excluirRelatorio(@Param('id') id: string) {
-    const relatorioId = Number(id);
-
-    if (!Number.isInteger(relatorioId) || relatorioId <= 0) {
-      throw new BadRequestException('ID do relatório inválido');
-    }
-
-    const relatorio = await this.prisma.relatorio.findUnique({
-      where: { id: relatorioId },
-    });
-
-    if (!relatorio) {
-      throw new NotFoundException('Relatório não encontrado');
-    }
-
-    if (relatorio.urlDocumentoHash) {
-      const url = new URL(relatorio.urlDocumentoHash);
-      const partes = url.pathname.split('/').filter(Boolean);
-      const uploadIndex = partes.indexOf('upload');
-
-      if (uploadIndex !== -1) {
-        const publicId = partes
-          .slice(uploadIndex + 1)
-          .filter((parte) => !/^v\d+$/.test(parte))
-          .join('/');
-
-        await this.cloudinaryService.deletePdf(publicId);
-      }
-    }
-
-    await this.prisma.relatorio.delete({
-      where: { id: relatorioId },
-    });
-
-    return {
-      mensagem: 'Relatório excluído com sucesso',
-      id: relatorioId,
-    };
+  async excluirRelatorio(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.relatoriosService.remove(id);
   }
 }
