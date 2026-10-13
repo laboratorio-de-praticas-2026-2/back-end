@@ -1,73 +1,85 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { RelatoriosWorker } from './relatorios.worker.js';
 
 describe('RelatoriosWorker - integração', () => {
   it('deve processar o relatório, gerar o PDF e enviar para o Cloudinary', async () => {
-    const relatorioId = '10';
-    const urlPdf =
-      'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf';
-    const pdf = Buffer.from('%PDF-relatorio-teste');
-
-    const gerarPdf = vi.fn().mockResolvedValue(pdf);
-    const uploadPdf = vi.fn().mockResolvedValue(urlPdf);
-
-    const relatorio = {
-      id: relatorioId,
-      nome: 'Relatório de teste',
-      categoria: 'Financeiro',
-      descricao: 'Relatório para teste',
-      dataInicio: new Date('2026-01-01T00:00:00.000Z'),
-      dataTermino: new Date('2026-01-31T00:00:00.000Z'),
-    };
-
-    const findOne = vi.fn().mockResolvedValue(relatorio);
-    const markGenerated = vi.fn().mockResolvedValue(undefined);
-    const markFailed = vi.fn().mockResolvedValue(undefined);
-
-    const renderRelatorio = vi.fn().mockReturnValue(
-      '<html><body>Relatório de teste</body></html>',
+    const gerarPdf = vi.fn().mockResolvedValue(
+      Buffer.from('%PDF-relatorio-teste'),
     );
 
-    const relatoriosPdfService = { gerarPdf };
-    const templateService = { renderRelatorio };
-    const cloudinaryService = { uploadPdf };
-    const relatoriosService = {
-      findOne,
-      markGenerated,
-      markFailed,
+    const uploadPdf = vi.fn().mockResolvedValue(
+      'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf',
+    );
+
+    const relatorioUpdate = vi.fn().mockResolvedValue({});
+
+    const reportModel = {
+      findByPk: vi.fn().mockResolvedValue({
+        id: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
+        nome: 'Relatório de teste',
+        categoria: 'Financeiro',
+        descricao: 'Relatório para teste de integração',
+        dataInicio: new Date('2026-09-01'),
+        dataTermino: new Date('2026-09-30'),
+        status: 'PENDENTE',
+        arquivoUrl: null,
+        update: relatorioUpdate,
+      }),
+    };
+
+    const relatoriosPdfService = {
+      gerarPdf,
+    };
+
+    const relatorioTemplateService = {
+      render: vi.fn().mockReturnValue('<html>relatório</html>'),
+    };
+
+    const cloudinaryService = {
+      uploadPdf,
     };
 
     const worker = new RelatoriosWorker(
       relatoriosPdfService as any,
-      templateService as any,
+      relatorioTemplateService as any,
       cloudinaryService as any,
-      relatoriosService as any,
+      reportModel as any,
     );
 
     const job = {
-      id: 'job-10',
       name: 'gerar-relatorio',
-      data: { relatorioId },
+      data: {
+        relatorioId: 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
+      },
     } as any;
 
     await worker.process(job);
 
-    expect(findOne).toHaveBeenCalledWith(relatorioId);
-
-    expect(renderRelatorio).toHaveBeenCalledWith({
-      nome: relatorio.nome,
-      categoria: relatorio.categoria,
-      descricao: relatorio.descricao,
-      dataInicio: relatorio.dataInicio,
-      dataTermino: relatorio.dataTermino,
-    });
-
-    expect(gerarPdf).toHaveBeenCalledWith(
-      '<html><body>Relatório de teste</body></html>',
+    expect(reportModel.findByPk).toHaveBeenCalledWith(
+      'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f',
     );
 
-    expect(uploadPdf).toHaveBeenCalledWith(pdf);
+    expect(relatorioUpdate).toHaveBeenCalledWith({
+      status: 'PENDENTE',
+    });
 
-    expect(markGenerated).toHaveBeenCalledWith(relatorioId, urlPdf);
-    expect(markFailed).not.toHaveBeenCalled();
+    expect(relatorioTemplateService.render).toHaveBeenCalled();
+
+    expect(gerarPdf).toHaveBeenCalledWith(
+      '<html>relatório</html>',
+    );
+
+    expect(uploadPdf).toHaveBeenCalledTimes(1);
+
+    expect(uploadPdf).toHaveBeenCalledWith(
+      Buffer.from('%PDF-relatorio-teste'),
+    );
+
+    expect(relatorioUpdate).toHaveBeenLastCalledWith({
+      status: 'GERADO',
+      arquivoUrl:
+        'https://res.cloudinary.com/teste/raw/upload/relatorio.pdf',
+    });
   });
 });

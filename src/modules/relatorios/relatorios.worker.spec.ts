@@ -1,85 +1,384 @@
 import { describe, expect, it, vi } from 'vitest';
+
 import { RelatoriosWorker } from './relatorios.worker.js';
-import { RelatorioTemplateService } from './relatorio-template.service.js';
-
-const ID = 'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f';
-
-function setup() {
-  const relatorio = {
-    id: ID,
-    nome: 'Relatório de DAS',
-    categoria: 'Obrigações Fiscais',
-    descricao: 'Resumo das obrigações do DAS',
-    dataInicio: new Date('2026-04-07T00:00:00Z'),
-    dataTermino: new Date('2026-05-07T00:00:00Z'),
-  };
-  const relatoriosService = {
-    findOne: vi.fn().mockResolvedValue(relatorio),
-    markGenerated: vi.fn().mockResolvedValue(undefined),
-    markFailed: vi.fn().mockResolvedValue(undefined),
-  };
-  const pdfService = { gerarPdf: vi.fn().mockResolvedValue(Buffer.from('%PDF')) };
-  const cloudinary = {
-    uploadPdf: vi.fn().mockResolvedValue('https://res.cloudinary.com/x/raw/upload/a.pdf'),
-  };
-  const worker = new RelatoriosWorker(
-    pdfService as any,
-    new RelatorioTemplateService(),
-    cloudinary as any,
-    relatoriosService as any,
-  );
-
-  return { worker, relatoriosService, pdfService, cloudinary };
-}
-
-const job = { id: '1', name: 'gerar-relatorio', data: { relatorioId: ID } } as any;
 
 describe('RelatoriosWorker', () => {
-  it('gera o PDF com os dados reais do relatório, envia e marca como GERADO', async () => {
-    const { worker, relatoriosService, pdfService, cloudinary } = setup();
+  const relatorioId =
+    'f2b25226-6efc-4cc9-82cf-b0ca79d79b8f';
+
+  const criarRelatorio = () => {
+    const update = vi.fn().mockResolvedValue({});
+
+    return {
+      id: relatorioId,
+      nome: 'Relatório Financeiro',
+      categoria: 'Financeiro',
+      descricao: 'Relatório financeiro mensal',
+      dataInicio: new Date('2026-09-01'),
+      dataTermino: new Date('2026-09-30'),
+      status: 'PENDENTE' as const,
+      arquivoUrl: null,
+      update,
+    };
+  };
+
+  it('deve gerar o PDF e enviar para o Cloudinary', async () => {
+    const relatorio = criarRelatorio();
+
+    const findByPk = vi.fn().mockResolvedValue(relatorio);
+
+    const render = vi
+      .fn()
+      .mockReturnValue('<html>Relatório teste</html>');
+
+    const gerarPdf = vi
+      .fn()
+      .mockResolvedValue(Buffer.from('%PDF-teste'));
+
+    const uploadPdf = vi
+      .fn()
+      .mockResolvedValue(
+        'https://res.cloudinary.com/teste/relatorio.pdf',
+      );
+
+    const reportModel = {
+      findByPk,
+    };
+
+    const relatorioTemplateService = {
+      render,
+    };
+
+    const relatoriosPdfService = {
+      gerarPdf,
+    };
+
+    const cloudinaryService = {
+      uploadPdf,
+      deletePdf: vi.fn(),
+    };
+
+    const worker = new RelatoriosWorker(
+      relatoriosPdfService as any,
+      relatorioTemplateService as any,
+      cloudinaryService as any,
+      reportModel as any,
+    );
+
+    const job = {
+      name: 'gerar-relatorio',
+      data: {
+        relatorioId,
+      },
+    } as any;
 
     await worker.process(job);
 
-    const html = pdfService.gerarPdf.mock.calls[0][0] as string;
-    expect(html).toContain('Relatório de DAS');
-    expect(html).toContain('Obrigações Fiscais');
-    expect(html).toContain('Resumo das obrigações do DAS');
-    expect(html).toContain('07/04/2026 a 07/05/2026');
-    expect(html).not.toContain('Relatório de teste');
-    expect(cloudinary.uploadPdf).toHaveBeenCalledWith(Buffer.from('%PDF'));
-    expect(relatoriosService.markGenerated).toHaveBeenCalledWith(
-      ID,
-      'https://res.cloudinary.com/x/raw/upload/a.pdf',
+    expect(findByPk).toHaveBeenCalledWith(relatorioId);
+
+    expect(relatorio.update).toHaveBeenCalledWith({
+      status: 'PENDENTE',
+    });
+
+    expect(render).toHaveBeenCalledTimes(1);
+
+    expect(gerarPdf).toHaveBeenCalledWith(
+      '<html>Relatório teste</html>',
     );
-    expect(relatoriosService.markFailed).not.toHaveBeenCalled();
+
+    expect(gerarPdf).toHaveBeenCalledTimes(1);
+
+    expect(uploadPdf).toHaveBeenCalledTimes(1);
+    expect(uploadPdf).toHaveBeenCalledWith(
+      Buffer.from('%PDF-teste'),
+    );
+
+    expect(relatorio.update).toHaveBeenCalledWith({
+      status: 'GERADO',
+      arquivoUrl:
+        'https://res.cloudinary.com/teste/relatorio.pdf',
+    });
   });
 
-  it('marca FALHA e relança o erro quando a geração do PDF falha', async () => {
-    const { worker, relatoriosService, pdfService, cloudinary } = setup();
-    pdfService.gerarPdf.mockRejectedValue(new Error('chromium indisponível'));
+  it('deve marcar o relatório como FALHA quando a geração do PDF falhar', async () => {
+    const relatorio = criarRelatorio();
 
-    await expect(worker.process(job)).rejects.toThrow('chromium indisponível');
+    const findByPk = vi.fn().mockResolvedValue(relatorio);
 
-    expect(cloudinary.uploadPdf).not.toHaveBeenCalled();
-    expect(relatoriosService.markGenerated).not.toHaveBeenCalled();
-    expect(relatoriosService.markFailed).toHaveBeenCalledWith(ID);
+    const render = vi
+      .fn()
+      .mockReturnValue('<html>Relatório teste</html>');
+
+    const erro = new Error('Falha ao gerar PDF');
+
+    const gerarPdf = vi.fn().mockRejectedValue(erro);
+
+    const uploadPdf = vi.fn();
+
+    const reportModel = {
+      findByPk,
+    };
+
+    const relatorioTemplateService = {
+      render,
+    };
+
+    const relatoriosPdfService = {
+      gerarPdf,
+    };
+
+    const cloudinaryService = {
+      uploadPdf,
+      deletePdf: vi.fn(),
+    };
+
+    const worker = new RelatoriosWorker(
+      relatoriosPdfService as any,
+      relatorioTemplateService as any,
+      cloudinaryService as any,
+      reportModel as any,
+    );
+
+    const job = {
+      name: 'gerar-relatorio',
+      data: {
+        relatorioId,
+      },
+    } as any;
+
+    await expect(worker.process(job)).rejects.toThrow(
+      'Falha ao gerar PDF',
+    );
+
+    expect(gerarPdf).toHaveBeenCalledTimes(1);
+    expect(uploadPdf).not.toHaveBeenCalled();
+
+    expect(relatorio.update).toHaveBeenCalledWith({
+      status: 'FALHA',
+    });
   });
 
-  it('marca FALHA e não considera GERADO quando o upload falha', async () => {
-    const { worker, relatoriosService, cloudinary } = setup();
-    cloudinary.uploadPdf.mockRejectedValue(new Error('cloudinary fora'));
+  it('deve marcar o relatório como FALHA quando o upload para o Cloudinary falhar', async () => {
+    const relatorio = criarRelatorio();
 
-    await expect(worker.process(job)).rejects.toThrow('cloudinary fora');
+    const findByPk = vi.fn().mockResolvedValue(relatorio);
 
-    expect(relatoriosService.markGenerated).not.toHaveBeenCalled();
-    expect(relatoriosService.markFailed).toHaveBeenCalledWith(ID);
+    const render = vi
+      .fn()
+      .mockReturnValue('<html>Relatório teste</html>');
+
+    const gerarPdf = vi
+      .fn()
+      .mockResolvedValue(Buffer.from('%PDF-teste'));
+
+    const erro = new Error('Falha no upload');
+
+    const uploadPdf = vi.fn().mockRejectedValue(erro);
+
+    const reportModel = {
+      findByPk,
+    };
+
+    const relatorioTemplateService = {
+      render,
+    };
+
+    const relatoriosPdfService = {
+      gerarPdf,
+    };
+
+    const cloudinaryService = {
+      uploadPdf,
+      deletePdf: vi.fn(),
+    };
+
+    const worker = new RelatoriosWorker(
+      relatoriosPdfService as any,
+      relatorioTemplateService as any,
+      cloudinaryService as any,
+      reportModel as any,
+    );
+
+    const job = {
+      name: 'gerar-relatorio',
+      data: {
+        relatorioId,
+      },
+    } as any;
+
+    await expect(worker.process(job)).rejects.toThrow(
+      'Falha no upload',
+    );
+
+    expect(gerarPdf).toHaveBeenCalledTimes(1);
+
+    expect(uploadPdf).toHaveBeenCalledWith(
+      Buffer.from('%PDF-teste'),
+    );
+
+    expect(relatorio.update).toHaveBeenCalledWith({
+      status: 'FALHA',
+    });
   });
 
-  it('mantém o erro original mesmo se atualizar o status para FALHA também falhar', async () => {
-    const { worker, relatoriosService, pdfService } = setup();
-    pdfService.gerarPdf.mockRejectedValue(new Error('erro original'));
-    relatoriosService.markFailed.mockRejectedValue(new Error('db fora'));
+  it('deve rejeitar quando o relatório não existir', async () => {
+    const findByPk = vi.fn().mockResolvedValue(null);
 
-    await expect(worker.process(job)).rejects.toThrow('erro original');
+    const render = vi.fn();
+    const gerarPdf = vi.fn();
+    const uploadPdf = vi.fn();
+
+    const reportModel = {
+      findByPk,
+    };
+
+    const relatorioTemplateService = {
+      render,
+    };
+
+    const relatoriosPdfService = {
+      gerarPdf,
+    };
+
+    const cloudinaryService = {
+      uploadPdf,
+      deletePdf: vi.fn(),
+    };
+
+    const worker = new RelatoriosWorker(
+      relatoriosPdfService as any,
+      relatorioTemplateService as any,
+      cloudinaryService as any,
+      reportModel as any,
+    );
+
+    const job = {
+      name: 'gerar-relatorio',
+      data: {
+        relatorioId,
+      },
+    } as any;
+
+    await expect(worker.process(job)).rejects.toThrow(
+      'Relatório não encontrado',
+    );
+
+    expect(render).not.toHaveBeenCalled();
+    expect(gerarPdf).not.toHaveBeenCalled();
+    expect(uploadPdf).not.toHaveBeenCalled();
+  });
+
+  it('não deve marcar como GERADO quando o PDF estiver vazio', async () => {
+    const relatorio = criarRelatorio();
+
+    const findByPk = vi.fn().mockResolvedValue(relatorio);
+
+    const render = vi
+      .fn()
+      .mockReturnValue('<html>Relatório teste</html>');
+
+    const gerarPdf = vi
+      .fn()
+      .mockResolvedValue(Buffer.alloc(0));
+
+    const uploadPdf = vi.fn();
+
+    const reportModel = {
+      findByPk,
+    };
+
+    const relatorioTemplateService = {
+      render,
+    };
+
+    const relatoriosPdfService = {
+      gerarPdf,
+    };
+
+    const cloudinaryService = {
+      uploadPdf,
+      deletePdf: vi.fn(),
+    };
+
+    const worker = new RelatoriosWorker(
+      relatoriosPdfService as any,
+      relatorioTemplateService as any,
+      cloudinaryService as any,
+      reportModel as any,
+    );
+
+    const job = {
+      name: 'gerar-relatorio',
+      data: {
+        relatorioId,
+      },
+    } as any;
+
+    await expect(worker.process(job)).rejects.toThrow(
+      'PDF gerado está vazio',
+    );
+
+    expect(uploadPdf).not.toHaveBeenCalled();
+
+    expect(relatorio.update).toHaveBeenCalledWith({
+      status: 'FALHA',
+    });
+  });
+
+  it('não deve marcar como GERADO quando o conteúdo não for um PDF válido', async () => {
+    const relatorio = criarRelatorio();
+
+    const findByPk = vi.fn().mockResolvedValue(relatorio);
+
+    const render = vi
+      .fn()
+      .mockReturnValue('<html>Relatório teste</html>');
+
+    const gerarPdf = vi
+      .fn()
+      .mockResolvedValue(Buffer.from('conteudo inválido'));
+
+    const uploadPdf = vi.fn();
+
+    const reportModel = {
+      findByPk,
+    };
+
+    const relatorioTemplateService = {
+      render,
+    };
+
+    const relatoriosPdfService = {
+      gerarPdf,
+    };
+
+    const cloudinaryService = {
+      uploadPdf,
+      deletePdf: vi.fn(),
+    };
+
+    const worker = new RelatoriosWorker(
+      relatoriosPdfService as any,
+      relatorioTemplateService as any,
+      cloudinaryService as any,
+      reportModel as any,
+    );
+
+    const job = {
+      name: 'gerar-relatorio',
+      data: {
+        relatorioId,
+      },
+    } as any;
+
+    await expect(worker.process(job)).rejects.toThrow(
+      'O conteúdo gerado não é um PDF válido',
+    );
+
+    expect(uploadPdf).not.toHaveBeenCalled();
+
+    expect(relatorio.update).toHaveBeenCalledWith({
+      status: 'FALHA',
+    });
   });
 });

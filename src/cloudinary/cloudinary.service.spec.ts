@@ -61,7 +61,9 @@ describe('CloudinaryService', () => {
       }),
     };
 
-    const service = new CloudinaryService(configServiceMock as any);
+    const service = new CloudinaryService(
+      configServiceMock as any,
+    );
 
     const buffer = Buffer.from('PDF de teste');
 
@@ -89,11 +91,13 @@ describe('CloudinaryService', () => {
   });
 
   it('deve retornar erro quando o upload falhar', async () => {
-    uploadStreamMock.mockImplementationOnce((_options, callback) => {
-      callback(new Error('Falha no upload'), undefined);
+    uploadStreamMock.mockImplementationOnce(
+      (_options, callback) => {
+        callback(new Error('Falha no upload'), undefined);
 
-      return uploadStream;
-    });
+        return uploadStream;
+      },
+    );
 
     const configServiceMock = {
       get: vi.fn((key: string) => {
@@ -107,13 +111,15 @@ describe('CloudinaryService', () => {
       }),
     };
 
-    const service = new CloudinaryService(configServiceMock as any);
+    const service = new CloudinaryService(
+      configServiceMock as any,
+    );
 
     const buffer = Buffer.from('PDF de teste');
 
-    await expect(service.uploadPdf(buffer)).rejects.toThrow(
-      'Falha no upload',
-    );
+    await expect(
+      service.uploadPdf(buffer),
+    ).rejects.toThrow('Falha no upload');
   });
 
   it('deve excluir o PDF do Cloudinary', async () => {
@@ -129,7 +135,9 @@ describe('CloudinaryService', () => {
       }),
     };
 
-    const service = new CloudinaryService(configServiceMock as any);
+    const service = new CloudinaryService(
+      configServiceMock as any,
+    );
 
     await service.deletePdf('relatorios/relatorio-1');
 
@@ -145,7 +153,10 @@ describe('CloudinaryService', () => {
   it('deve retornar erro quando a exclusão do PDF falhar', async () => {
     destroyMock.mockImplementationOnce(
       (_publicId, _options, callback) => {
-        callback(new Error('Falha ao excluir PDF'), undefined);
+        callback(
+          new Error('Falha ao excluir PDF'),
+          undefined,
+        );
       },
     );
 
@@ -161,10 +172,93 @@ describe('CloudinaryService', () => {
       }),
     };
 
-    const service = new CloudinaryService(configServiceMock as any);
+    const service = new CloudinaryService(
+      configServiceMock as any,
+    );
 
     await expect(
       service.deletePdf('relatorios/relatorio-1'),
     ).rejects.toThrow('Falha ao excluir PDF');
+  });
+
+  it('deve baixar o PDF do Cloudinary e retornar um Buffer', async () => {
+    const pdfBuffer = Buffer.from('%PDF-1.4 PDF de teste');
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(pdfBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+          },
+        }),
+      );
+
+    const configServiceMock = {
+      get: vi.fn((key: string) => {
+        const values: Record<string, string> = {
+          CLOUDINARY_CLOUD_NAME: 'test-cloud',
+          CLOUDINARY_API_KEY: 'test-key',
+          CLOUDINARY_API_SECRET: 'test-secret',
+        };
+
+        return values[key];
+      }),
+    };
+
+    const service = new CloudinaryService(
+      configServiceMock as any,
+    );
+
+    const result = await service.downloadPdf(
+      'https://res.cloudinary.com/test/raw/upload/relatorio.pdf',
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://res.cloudinary.com/test/raw/upload/relatorio.pdf',
+    );
+
+    expect(Buffer.isBuffer(result)).toBe(true);
+    expect(result).toEqual(pdfBuffer);
+
+    fetchMock.mockRestore();
+  });
+
+  it('deve retornar erro quando o download do PDF falhar', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(null, {
+          status: 404,
+          statusText: 'Not Found',
+        }),
+      );
+
+    const configServiceMock = {
+      get: vi.fn((key: string) => {
+        const values: Record<string, string> = {
+          CLOUDINARY_CLOUD_NAME: 'test-cloud',
+          CLOUDINARY_API_KEY: 'test-key',
+          CLOUDINARY_API_SECRET: 'test-secret',
+        };
+
+        return values[key];
+      }),
+    };
+
+    const service = new CloudinaryService(
+      configServiceMock as any,
+    );
+
+    await expect(
+      service.downloadPdf(
+        'https://res.cloudinary.com/test/raw/upload/relatorio.pdf',
+      ),
+    ).rejects.toThrow(
+      'Falha ao obter PDF do Cloudinary: 404',
+    );
+
+    fetchMock.mockRestore();
   });
 });

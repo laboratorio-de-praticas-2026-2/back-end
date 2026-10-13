@@ -60,7 +60,6 @@ export class CloudinaryService {
       );
     });
   }
-
   async downloadPdf(url: string): Promise<Buffer> {
     const response = await fetch(url);
 
