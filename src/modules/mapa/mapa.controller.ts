@@ -1,3 +1,4 @@
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post } from '@nestjs/common';
 import {
   Body,
   Controller,
@@ -22,6 +23,12 @@ export class MapaController {
     return this.mapaService.cadastrar(body);
   }
 
+  @Get('mapa/parceiros/:id')
+  @HttpCode(HttpStatus.OK)
+  findParceiroById(@Param('id', ParseIntPipe) id: number) {
+    return this.mapaService.findParceiroById(id);
+  }
+}
   @Get()
   listarParceiros() {
     return this.mapaService.findAllParceiros();
