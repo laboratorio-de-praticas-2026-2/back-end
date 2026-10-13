@@ -20,6 +20,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
       throw new Error(
         'Configuração do banco ausente. Defina DATABASE_URL ou DB_HOST, DB_PORT, DB_USER, DB_PASSWORD e DB_NAME no arquivo .env.',
       );
+      throw new Error('DB_HOST não definida.');
     }
 
     const adapter = new PrismaMariaDb(connectionString);
