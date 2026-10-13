@@ -29,7 +29,6 @@ import { AgendamentoModel } from './models/agendamento.model.js';
 import { TipoAtendimentoModel } from './models/tipo-atendimento.model.js';
 import { ClienteModule } from './modules/cliente/cliente.module.js';
 import { AdministracaoModule } from './modules/administracao/administracao.module.js';
-
 import { Usuario } from './models/usuario.model.js';
 import { ObrigacaoEmpresa } from './models/obrigacao-empresa.model.js';
 import { ObrigacaoServico } from './models/obrigacao-servico.model.js';
