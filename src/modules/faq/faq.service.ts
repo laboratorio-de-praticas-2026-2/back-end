@@ -12,17 +12,23 @@ export class FaqService {
     private readonly faqModel: typeof Faq,
   ) {}
 
-  async listar(categoria?: string, palavra?: string): Promise<Faq[]> {
-    const where: WhereOptions = { status: true };
-    if (categoria) where.categoria = categoria;
-    if (palavra) {
-      where[Op.or] = [
-        { pergunta: { [Op.like]: `%${palavra}%` } },
-        { resposta: { [Op.like]: `%${palavra}%` } }
-      ];
-    }
-    return this.faqModel.findAll({ where });
-  }
+  
+async listar(categoria?: string, palavra?: string): Promise<Faq[]> {
+  const where: WhereOptions = {
+    status: true,
+    ...(categoria ? { categoria } : {}),
+    ...(palavra
+      ? {
+          [Op.or]: [
+            { pergunta: { [Op.like]: `%${palavra}%` } },
+            { resposta: { [Op.like]: `%${palavra}%` } },
+          ],
+        }
+      : {}),
+  };
+
+  return this.faqModel.findAll({ where });
+}
 
   async create(createFaqDto: CreateFaqDto): Promise<Faq> {
     return await this.faqModel.create({

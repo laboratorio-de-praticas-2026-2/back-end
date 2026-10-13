@@ -13,7 +13,6 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-<<<<<<< HEAD
 import { AuthModule } from './modules/auth/auth.module.js';
 import { ContatoModule } from './modules/contato/contato.module.js';
 import { DisparoModule } from './modules/contato/disparo/disparo.module.js';
@@ -27,7 +26,6 @@ import { AgendamentoModel } from './models/agendamento.model.js';
 import { TipoAtendimentoModel } from './models/tipo-atendimento.model.js';
 import { ClienteModule } from './modules/cliente/cliente.module.js';
 import { AdministracaoModule } from './modules/administracao/administracao.module.js';
-
 import { Usuario } from './models/usuario.model.js';
 import { ObrigacaoEmpresa } from './models/obrigacao-empresa.model.js';
 import { ObrigacaoServico } from './models/obrigacao-servico.model.js';
@@ -37,11 +35,6 @@ import { Parcela } from './models/parcela.model.js';
 import { Solicitacao } from './models/solicitacao.model.js';
 import { DocumentoSolicitacao } from './models/documento-solicitacao.model.js';
 import { Servico } from './models/servico.model.js';
-
-
-=======
-import { FaqModule } from './faq/faq.module.js';
->>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -75,7 +68,6 @@ const redisPort = Number(process.env.REDIS_PORT ?? 6379);
         port: Number.isFinite(redisPort) ? redisPort : 6379,
       },
     }),
-<<<<<<< HEAD
 
     CloudinaryModule,
 
@@ -142,9 +134,6 @@ PrismaModule,
     HeaderModule,
     PublicidadeModule,
     ServicosModule,
-=======
-    FaqModule,
->>>>>>> c59611b (feat: implementar endpoints de criação e edição (POST e PUT) do FAQ (#13))
   ],
 
   controllers: [AppController],
