@@ -1,3 +1,4 @@
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { RelatoriosWorker } from './relatorios.worker.js';
@@ -33,11 +34,14 @@ describe('RelatoriosWorker - integração', () => {
     };
 
     const relatorioTemplateService = {
-      render: vi.fn().mockReturnValue('<html>relatório</html>'),
+      renderRelatorio: vi
+        .fn()
+        .mockReturnValue('<html>relatório</html>'),
     };
 
     const cloudinaryService = {
       uploadPdf,
+      deletePdf: vi.fn(),
     };
 
     const worker = new RelatoriosWorker(
@@ -64,7 +68,9 @@ describe('RelatoriosWorker - integração', () => {
       status: 'PENDENTE',
     });
 
-    expect(relatorioTemplateService.render).toHaveBeenCalled();
+    expect(
+      relatorioTemplateService.renderRelatorio,
+    ).toHaveBeenCalledTimes(1);
 
     expect(gerarPdf).toHaveBeenCalledWith(
       '<html>relatório</html>',

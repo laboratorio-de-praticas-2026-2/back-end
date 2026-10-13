@@ -1,3 +1,4 @@
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { RelatoriosWorker } from './relatorios.worker.js';
@@ -27,7 +28,7 @@ describe('RelatoriosWorker', () => {
 
     const findByPk = vi.fn().mockResolvedValue(relatorio);
 
-    const render = vi
+    const renderRelatorio = vi
       .fn()
       .mockReturnValue('<html>Relatório teste</html>');
 
@@ -46,7 +47,7 @@ describe('RelatoriosWorker', () => {
     };
 
     const relatorioTemplateService = {
-      render,
+      renderRelatorio,
     };
 
     const relatoriosPdfService = {
@@ -80,7 +81,7 @@ describe('RelatoriosWorker', () => {
       status: 'PENDENTE',
     });
 
-    expect(render).toHaveBeenCalledTimes(1);
+    expect(renderRelatorio).toHaveBeenCalledTimes(1);
 
     expect(gerarPdf).toHaveBeenCalledWith(
       '<html>Relatório teste</html>',
@@ -89,6 +90,7 @@ describe('RelatoriosWorker', () => {
     expect(gerarPdf).toHaveBeenCalledTimes(1);
 
     expect(uploadPdf).toHaveBeenCalledTimes(1);
+
     expect(uploadPdf).toHaveBeenCalledWith(
       Buffer.from('%PDF-teste'),
     );
@@ -105,7 +107,7 @@ describe('RelatoriosWorker', () => {
 
     const findByPk = vi.fn().mockResolvedValue(relatorio);
 
-    const render = vi
+    const renderRelatorio = vi
       .fn()
       .mockReturnValue('<html>Relatório teste</html>');
 
@@ -120,7 +122,7 @@ describe('RelatoriosWorker', () => {
     };
 
     const relatorioTemplateService = {
-      render,
+      renderRelatorio,
     };
 
     const relatoriosPdfService = {
@@ -151,6 +153,7 @@ describe('RelatoriosWorker', () => {
     );
 
     expect(gerarPdf).toHaveBeenCalledTimes(1);
+
     expect(uploadPdf).not.toHaveBeenCalled();
 
     expect(relatorio.update).toHaveBeenCalledWith({
@@ -163,7 +166,7 @@ describe('RelatoriosWorker', () => {
 
     const findByPk = vi.fn().mockResolvedValue(relatorio);
 
-    const render = vi
+    const renderRelatorio = vi
       .fn()
       .mockReturnValue('<html>Relatório teste</html>');
 
@@ -180,7 +183,7 @@ describe('RelatoriosWorker', () => {
     };
 
     const relatorioTemplateService = {
-      render,
+      renderRelatorio,
     };
 
     const relatoriosPdfService = {
@@ -224,7 +227,7 @@ describe('RelatoriosWorker', () => {
   it('deve rejeitar quando o relatório não existir', async () => {
     const findByPk = vi.fn().mockResolvedValue(null);
 
-    const render = vi.fn();
+    const renderRelatorio = vi.fn();
     const gerarPdf = vi.fn();
     const uploadPdf = vi.fn();
 
@@ -233,7 +236,7 @@ describe('RelatoriosWorker', () => {
     };
 
     const relatorioTemplateService = {
-      render,
+      renderRelatorio,
     };
 
     const relatoriosPdfService = {
@@ -263,8 +266,10 @@ describe('RelatoriosWorker', () => {
       'Relatório não encontrado',
     );
 
-    expect(render).not.toHaveBeenCalled();
+    expect(renderRelatorio).not.toHaveBeenCalled();
+
     expect(gerarPdf).not.toHaveBeenCalled();
+
     expect(uploadPdf).not.toHaveBeenCalled();
   });
 
@@ -273,7 +278,7 @@ describe('RelatoriosWorker', () => {
 
     const findByPk = vi.fn().mockResolvedValue(relatorio);
 
-    const render = vi
+    const renderRelatorio = vi
       .fn()
       .mockReturnValue('<html>Relatório teste</html>');
 
@@ -288,7 +293,7 @@ describe('RelatoriosWorker', () => {
     };
 
     const relatorioTemplateService = {
-      render,
+      renderRelatorio,
     };
 
     const relatoriosPdfService = {
@@ -330,7 +335,7 @@ describe('RelatoriosWorker', () => {
 
     const findByPk = vi.fn().mockResolvedValue(relatorio);
 
-    const render = vi
+    const renderRelatorio = vi
       .fn()
       .mockReturnValue('<html>Relatório teste</html>');
 
@@ -345,7 +350,7 @@ describe('RelatoriosWorker', () => {
     };
 
     const relatorioTemplateService = {
-      render,
+      renderRelatorio,
     };
 
     const relatoriosPdfService = {

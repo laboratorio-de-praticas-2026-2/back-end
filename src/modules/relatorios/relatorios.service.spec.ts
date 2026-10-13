@@ -1,3 +1,4 @@
+
 import { NotFoundException } from '@nestjs/common';
 import { getModelToken } from '@nestjs/sequelize';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -6,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Report } from '../../models/report.model.js';
 import { CloudinaryService } from '../../cloudinary/cloudinary.service.js';
-
 import { RelatoriosService } from './relatorios.service.js';
 
 describe('RelatoriosService', () => {
@@ -126,7 +126,7 @@ describe('RelatoriosService', () => {
       where: {},
       limit: 2,
       offset: 0,
-      order: [['data_inicio', 'DESC']],
+      order: [['dataInicio', 'DESC']],
     });
 
     expect(result).toEqual({
@@ -159,7 +159,7 @@ describe('RelatoriosService', () => {
         },
         limit: 10,
         offset: 0,
-        order: [['data_inicio', 'DESC']],
+        order: [['dataInicio', 'DESC']],
       }),
     );
   });
@@ -404,7 +404,9 @@ describe('RelatoriosService', () => {
 
     expect(
       cloudinaryService.deletePdf.mock.invocationCallOrder[0],
-    ).toBeLessThan(report.destroy.mock.invocationCallOrder[0]);
+    ).toBeLessThan(
+      report.destroy.mock.invocationCallOrder[0],
+    );
   });
 
   it('não deve excluir o relatório se a exclusão no Cloudinary falhar', async () => {
@@ -420,6 +422,7 @@ describe('RelatoriosService', () => {
     );
 
     reportModel.findByPk.mockResolvedValue(report);
+
     cloudinaryService.deletePdf.mockRejectedValue(
       cloudinaryError,
     );

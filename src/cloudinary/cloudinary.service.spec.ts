@@ -1,3 +1,4 @@
+
 import { describe, expect, it, vi } from 'vitest';
 
 const {
@@ -256,7 +257,7 @@ describe('CloudinaryService', () => {
         'https://res.cloudinary.com/test/raw/upload/relatorio.pdf',
       ),
     ).rejects.toThrow(
-      'Falha ao obter PDF do Cloudinary: 404',
+      'Falha ao baixar PDF do Cloudinary: HTTP 404',
     );
 
     fetchMock.mockRestore();

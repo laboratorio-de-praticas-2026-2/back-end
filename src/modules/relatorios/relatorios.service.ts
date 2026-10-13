@@ -107,7 +107,7 @@ export class RelatoriosService {
       where,
       limit,
       offset,
-      order: [['data_inicio', 'DESC']],
+      order: [['dataInicio', 'DESC']],
     });
 
     return {

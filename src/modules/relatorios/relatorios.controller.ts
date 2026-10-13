@@ -44,6 +44,35 @@ export class RelatoriosController {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
+  /** Valida o estado do relatório e baixa o PDF gerado (regras compartilhadas por preview e download). */
+  private async carregarPdfGerado(id: string) {
+    const relatorio = await this.relatoriosService.findById(id);
+
+    if (relatorio.status === 'PENDENTE') {
+      throw new BadRequestException(
+        'O PDF do relatório ainda está sendo gerado',
+      );
+    }
+
+    if (relatorio.status === 'FALHA') {
+      throw new BadRequestException(
+        'A geração do PDF do relatório falhou',
+      );
+    }
+
+    if (!relatorio.arquivoUrl) {
+      throw new BadRequestException(
+        'O relatório está marcado como GERADO, mas não possui um PDF disponível',
+      );
+    }
+
+    const pdf = await this.cloudinaryService.downloadPdf(
+      relatorio.arquivoUrl,
+    );
+
+    return { relatorio, pdf };
+  }
+
   @Post('simulacao')
   @ApiOperation({
     summary: 'Simular valores de um relatório',
@@ -275,7 +304,7 @@ export class RelatoriosController {
   ) {
     const relatorio = await this.relatoriosService.findById(id);
 
-    if (!relatorio.arquivoUrl) {
+    if (relatorio.status !== 'GERADO' || !relatorio.arquivoUrl) {
       throw new BadRequestException(
         'O relatório ainda não possui um PDF gerado',
       );
@@ -321,34 +350,56 @@ export class RelatoriosController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Res() response: Response,
   ): Promise<void> {
-    const relatorio = await this.relatoriosService.findById(id);
-
-    if (relatorio.status === 'PENDENTE') {
-      throw new BadRequestException(
-        'O PDF do relatório ainda está sendo gerado',
-      );
-    }
-
-    if (relatorio.status === 'FALHA') {
-      throw new BadRequestException(
-        'A geração do PDF do relatório falhou',
-      );
-    }
-
-    if (!relatorio.arquivoUrl) {
-      throw new BadRequestException(
-        'O relatório está marcado como GERADO, mas não possui um PDF disponível',
-      );
-    }
-
-    const pdf = await this.cloudinaryService.downloadPdf(
-      relatorio.arquivoUrl,
-    );
+    const { pdf } = await this.carregarPdfGerado(id);
 
     response
       .set({
         'Content-Type': 'application/pdf',
         'Content-Disposition': 'inline',
+        'Content-Length': String(pdf.length),
+      })
+      .send(pdf);
+  }
+
+  @Get(':id/download')
+  @ApiOperation({
+    summary: 'Baixar o PDF de um relatório',
+    description:
+      'Retorna o PDF como anexo (download) quando o status for GERADO. Mesmas regras de validação de GET /:id/preview.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'UUID do relatório',
+    example: 'fa1342e6-3c0d-4048-98ff-c5111e5b2647',
+  })
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({
+    description: 'PDF retornado como anexo.',
+    content: {
+      'application/pdf': { schema: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Relatório pendente, com falha na geração ou sem PDF disponível.',
+  })
+  @ApiNotFoundResponse({ description: 'Relatório não encontrado.' })
+  async baixarRelatorio(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    const { relatorio, pdf } = await this.carregarPdfGerado(id);
+    const nomeArquivo =
+      String(relatorio.nome ?? 'relatorio')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'relatorio';
+
+    response
+      .set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${nomeArquivo}.pdf"`,
         'Content-Length': String(pdf.length),
       })
       .send(pdf);

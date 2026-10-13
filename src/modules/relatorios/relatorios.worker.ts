@@ -1,3 +1,4 @@
+
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
@@ -29,36 +30,38 @@ export class RelatoriosWorker extends WorkerHost {
     let arquivoUrl: string | null = null;
 
     try {
+      // 1. Buscar o relatório no banco de dados
       const relatorio = await this.reportModel.findByPk(relatorioId);
 
       if (!relatorio) {
         throw new Error('Relatório não encontrado');
       }
 
+      // 2. Atualizar o status para PENDENTE
       await relatorio.update({
         status: 'PENDENTE',
       });
 
-      const dto = {
-        titulo: relatorio.nome,
-        nomeCliente: relatorio.categoria,
-        periodoInicio: relatorio.dataInicio.toISOString(),
-        periodoFim: relatorio.dataTermino.toISOString(),
-        itens: [
-          {
-            descricao: relatorio.descricao,
-            valor: 0,
-            status: relatorio.status,
-          },
-        ],
-      };
+      // 3. Gerar o HTML utilizando o template original
+      // do Grupo Bortone, com capa e identidade visual.
+      const html = this.relatorioTemplateService.renderRelatorio({
+        nome: relatorio.nome,
+        categoria: relatorio.categoria,
+        descricao: relatorio.descricao,
+        dataInicio: relatorio.dataInicio,
+        dataTermino: relatorio.dataTermino,
+      });
 
-      const html = this.relatorioTemplateService.render(dto);
-
+      // 4. Converter o HTML em PDF com Puppeteer
       const pdf = await this.relatoriosPdfService.gerarPdf(html);
 
-      console.log('PDF gerado em memória:', pdf.length, 'bytes');
+      console.log(
+        'PDF gerado em memória:',
+        pdf.length,
+        'bytes',
+      );
 
+      // 5. Validar se o PDF foi gerado corretamente
       if (!pdf || pdf.length === 0) {
         throw new Error('PDF gerado está vazio');
       }
@@ -67,26 +70,40 @@ export class RelatoriosWorker extends WorkerHost {
         throw new Error('O conteúdo gerado não é um PDF válido');
       }
 
+      // 6. Enviar o PDF para o Cloudinary
       arquivoUrl = await this.cloudinaryService.uploadPdf(pdf);
 
-      console.log('PDF enviado para o Cloudinary:', arquivoUrl);
+      console.log(
+        'PDF enviado para o Cloudinary:',
+        arquivoUrl,
+      );
 
+      // 7. Atualizar o relatório com a URL e o status GERADO
       await relatorio.update({
         status: 'GERADO',
         arquivoUrl,
       });
 
-      console.log('Relatório finalizado com sucesso:', relatorio.id);
+      console.log(
+        'Relatório finalizado com sucesso:',
+        relatorio.id,
+      );
     } catch (error) {
       console.error(
         'Erro ao processar relatório:',
         error instanceof Error ? error.message : error,
       );
 
+      // 8. Remover o arquivo do Cloudinary caso ocorra
+      // uma falha após o upload.
       if (arquivoUrl) {
         try {
           const url = new URL(arquivoUrl);
-          const partes = url.pathname.split('/').filter(Boolean);
+
+          const partes = url.pathname
+            .split('/')
+            .filter(Boolean);
+
           const uploadIndex = partes.indexOf('upload');
 
           if (uploadIndex !== -1) {
@@ -107,8 +124,11 @@ export class RelatoriosWorker extends WorkerHost {
         }
       }
 
+      // 9. Atualizar o status para FALHA
       try {
-        const relatorio = await this.reportModel.findByPk(relatorioId);
+        const relatorio = await this.reportModel.findByPk(
+          relatorioId,
+        );
 
         if (relatorio) {
           await relatorio.update({
@@ -118,10 +138,13 @@ export class RelatoriosWorker extends WorkerHost {
       } catch (updateError) {
         console.error(
           'Erro ao atualizar status para falha:',
-          updateError instanceof Error ? updateError.message : updateError,
+          updateError instanceof Error
+            ? updateError.message
+            : updateError,
         );
       }
 
+      // 10. Propagar o erro para o BullMQ
       throw error;
     }
   }
