@@ -62,3 +62,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .claude/
 .cursor/
 .devin/
+tsconfig.build.tsbuildinfo
