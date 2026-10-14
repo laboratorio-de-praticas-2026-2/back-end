@@ -12,7 +12,7 @@ export class FaqService {
     private readonly faqModel: typeof Faq,
   ) {}
 
-  
+
 async listar(categoria?: string, palavra?: string): Promise<Faq[]> {
   const where: WhereOptions = {
     status: true,

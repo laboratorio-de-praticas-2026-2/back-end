@@ -52,3 +52,33 @@ describe('RelatorioTemplateService', () => {
     expect(html).toContain('<meta charset="UTF-8">');
   });
 });
+
+describe('RelatorioTemplateService.renderRelatorio', () => {
+  const base = {
+    nome: 'DAS <abril>',
+    categoria: 'Obrigações Fiscais',
+    descricao: 'Resumo & detalhes',
+    dataInicio: new Date('2026-04-07T00:00:00Z'),
+    dataTermino: '2026-05-07T00:00:00Z',
+  };
+
+  it('usa os dados reais do relatório, com escape de HTML', () => {
+    const html = new RelatorioTemplateService().renderRelatorio(base);
+
+    expect(html).toContain('DAS &lt;abril&gt;');
+    expect(html).toContain('Obrigações Fiscais');
+    expect(html).toContain('Resumo &amp; detalhes');
+    expect(html).toContain('Período Analisado');
+    expect(html).toContain('07/04/2026 a 07/05/2026');
+    expect(html).toContain('Data de Emissão:');
+  });
+
+  it('não quebra com datas inválidas', () => {
+    const html = new RelatorioTemplateService().renderRelatorio({
+      ...base,
+      dataInicio: 'invalida',
+    });
+
+    expect(html).toContain('- a 07/05/2026');
+  });
+});

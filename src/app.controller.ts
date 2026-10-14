@@ -16,7 +16,7 @@ export class AppController {
 
   @Get('teste-pdf')
   async testePdf() {
-    await this.relatoriosProducer.adicionarGeracao(1);
+    await this.relatoriosProducer.adicionarGeracao('1');
 
     return {
       mensagem: 'Job de geração de PDF enviado para a fila',

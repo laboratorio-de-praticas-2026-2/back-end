@@ -22,7 +22,7 @@ export class FaqController {
 
   @Put(':id')
   async update(
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Body() updateFaqDto: UpdateFaqDto
   ) {
     return this.faqService.update(+id, updateFaqDto);

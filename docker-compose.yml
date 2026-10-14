@@ -8,13 +8,17 @@ services:
       - '3333:3333'
     depends_on:
       - db
+      - redis
     environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       DB_DIALECT: mysql
       DB_HOST: db
       DB_PORT: 3306
       DB_USER: ${MYSQL_USER:-app_user}
       DB_PASSWORD: ${MYSQL_PASSWORD:-app_password}
       DB_NAME: ${MYSQL_DATABASE:-app_db}
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
     env_file:
       - .env
 

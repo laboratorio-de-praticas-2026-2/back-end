@@ -6,7 +6,13 @@ export class RelatoriosPdfService {
   async gerarPdf(html: string): Promise<Buffer> {
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+      ],
     });
 
     try {
@@ -19,6 +25,7 @@ export class RelatoriosPdfService {
       const pdf = await page.pdf({
         format: 'A4',
         printBackground: true,
+        preferCSSPageSize: true,
       });
 
       return Buffer.from(pdf);
