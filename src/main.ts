@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -36,6 +37,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );
@@ -50,7 +52,6 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, document);
 
   const port = process.env.PORT ?? 3333;
-  await app.listen(port);
 
   try {
     const sequelize = app.get(Sequelize);
@@ -63,6 +64,11 @@ async function bootstrap() {
     );
   }
 
+  await app.listen(port);
+
+  // Logs da API
+  logger.log(`🚀 API rodando em http://localhost:${port}`);
+  logger.log(`🌎 Ambiente: ${process.env.NODE_ENV ?? 'development'}`);
   logger.log(
     `Observe: ${
       observeEnabled ? 'ativado' : 'desativado (sem credenciais)'
